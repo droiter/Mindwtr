@@ -11,9 +11,18 @@ const renderHostChild = (child: any, key: string) => {
   return React.createElement(React.Fragment, { key }, child);
 };
 
+const flattenStyle = (style: unknown): Record<string, unknown> => {
+  if (!Array.isArray(style)) return (style ?? {}) as Record<string, unknown>;
+  return style.reduce<Record<string, unknown>>(
+    (flattened, item) => ({ ...flattened, ...flattenStyle(item) }),
+    {},
+  );
+};
+
 export const StyleSheet = {
   hairlineWidth: 1,
   create: <T extends Record<string, unknown>>(styles: T) => styles,
+  flatten: flattenStyle,
   absoluteFillObject: {
     position: 'absolute',
     top: 0,

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Alert, AppState, Modal, ScrollView, SectionList, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, AppState, Modal, ScrollView, SectionList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { act, create, type ReactTestInstance } from 'react-test-renderer';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AppData, AppSettings, Area, Project, StorageAdapter, Task } from '@mindwtr/core';
@@ -1167,6 +1167,20 @@ describe('FocusScreen', () => {
     const scrollContent = tree.root.findByProps({ testID: 'focus-view-options-content' });
     expect(scrollContent.findAll((node) => node.props.children === 'Show details').length).toBeGreaterThan(0);
     expect(scrollContent.props.style.flexShrink).toBe(1);
+  });
+
+  it('keeps the View options sheet above the navigation bar so Details stays visible', () => {
+    let tree!: ReturnType<typeof create>;
+    act(() => {
+      tree = create(<FocusScreen />);
+    });
+
+    openViewOptions(tree);
+
+    const sheet = tree.root.findByProps({ testID: 'focus-view-options-sheet' });
+    const sheetStyle = StyleSheet.flatten(sheet.props.style);
+    // The test-safe-area mock reports a 24px bottom inset.
+    expect(sheetStyle.paddingBottom).toBeGreaterThanOrEqual(24);
   });
 
   it('previews deferred and recurring tasks surfacing within a week under Upcoming (#1061)', () => {

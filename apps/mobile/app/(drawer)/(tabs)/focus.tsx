@@ -1769,7 +1769,19 @@ export default function FocusScreen({ initialSavedFilterId }: { initialSavedFilt
             onPress={() => setViewOptionsVisible(false)}
             style={styles.sheetBackdrop}
           />
-          <View style={[styles.sheet, { backgroundColor: tc.cardBg, borderColor: tc.border }]}>
+          <View
+            testID="focus-view-options-sheet"
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: tc.cardBg,
+                borderColor: tc.border,
+                // Android 15+ draws the modal behind the navigation bar (edge-to-edge),
+                // so the last chip ("Show details") needs the safe-area inset to stay visible.
+                paddingBottom: Math.max(20, insets.bottom + 12),
+              },
+            ]}
+          >
             <View style={styles.sheetHeader}>
               <Text style={[styles.sheetTitle, { color: tc.text }]} accessibilityRole="header">
                 {resolveText('common.viewOptions', 'View options')}
@@ -1931,7 +1943,17 @@ export default function FocusScreen({ initialSavedFilterId }: { initialSavedFilt
               onPress={closeDeferDatePicker}
               style={styles.sheetBackdrop}
             />
-            <View style={[styles.sheet, styles.deferPickerSheet, { backgroundColor: tc.cardBg, borderColor: tc.border }]}>
+            <View
+              style={[
+                styles.sheet,
+                styles.deferPickerSheet,
+                {
+                  backgroundColor: tc.cardBg,
+                  borderColor: tc.border,
+                  paddingBottom: Math.max(20, insets.bottom + 12),
+                },
+              ]}
+            >
               <View style={styles.sheetHeader}>
                 <Text style={[styles.sheetTitle, { color: tc.text }]}>
                   {resolveText('review.startTime', 'Defer until')}
