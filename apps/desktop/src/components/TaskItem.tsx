@@ -108,6 +108,7 @@ interface TaskItemProps {
     interactionDisabled?: boolean;
     compactMetaEnabled?: boolean;
     enableDoubleClickEdit?: boolean;
+    lockedDestination?: boolean;
     showHoverHint?: boolean;
     relativeScheduleDates?: boolean;
     editorPresentation?: TaskEditorPresentation;
@@ -144,6 +145,7 @@ export const TaskItem = memo(function TaskItem({
     interactionDisabled = false,
     compactMetaEnabled = true,
     enableDoubleClickEdit = false,
+    lockedDestination = false,
     showHoverHint = true,
     relativeScheduleDates = false,
     editorPresentation,
@@ -643,6 +645,7 @@ export const TaskItem = memo(function TaskItem({
         timeEstimatesEnabled,
         hasProjectSections: selectedProjectHasSections,
         visibleEditAttachmentsLength: visibleEditAttachments.length,
+        lockedDestination,
     });
     const activeProjectId = draft.projectId || task.projectId || '';
     const projectSections = activeProjectId ? (sectionsByProject.get(activeProjectId) ?? []) : [];

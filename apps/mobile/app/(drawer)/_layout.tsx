@@ -69,7 +69,7 @@ function DrawerHeader({
 
 const AREA_FILTERED_ROUTES = new Set([
   'board', 'calendar', 'review', 'contexts', 'waiting', 'someday', 'reference', 'done',
-  'history', 'projects-screen', 'archived', 'trash', 'saved-search/[id]',
+  'history', 'projects-screen', 'archived', 'trash', 'saved-search/[id]', 'next',
 ]);
 
 
@@ -113,6 +113,7 @@ export default function AppLayout() {
       <Stack.Screen name="calendar" options={{ title: t('nav.calendar') }} />
       <Stack.Screen name="review" options={{ title: t('nav.review') }} />
       <Stack.Screen name="contexts" options={{ title: t('contexts.title') }} />
+      <Stack.Screen name="next" options={{ title: t('nav.next') }} />
       <Stack.Screen name="waiting" options={{ title: t('waiting.title') }} />
       <Stack.Screen name="someday" options={{ title: t('someday.title') }} />
       <Stack.Screen name="reference" options={{ title: t('nav.reference') }} />

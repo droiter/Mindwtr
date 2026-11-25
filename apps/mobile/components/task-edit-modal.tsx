@@ -169,6 +169,7 @@ interface TaskEditModalProps {
     onProjectNavigate?: (projectId: string) => void;
     onContextNavigate?: (context: string) => void;
     onTagNavigate?: (tag: string) => void;
+    lockedDestinationFields?: ('area' | 'project')[];
 
     readOnly?: boolean;
 }
@@ -183,6 +184,7 @@ function TaskEditModalInner({
     onProjectNavigate,
     onContextNavigate,
     onTagNavigate,
+    lockedDestinationFields,
     readOnly = false,
 }: TaskEditModalProps) {
     const { showToast } = useToast();
@@ -566,8 +568,11 @@ function TaskEditModalInner({
         t,
     });
     const destinationFields = useMemo(
-        () => basicFields.filter((fieldId) => fieldId === 'project' || fieldId === 'area'),
-        [basicFields],
+        () => basicFields.filter((fieldId) => (
+            (fieldId === 'project' || fieldId === 'area')
+            && !lockedDestinationFields?.includes(fieldId)
+        )),
+        [basicFields, lockedDestinationFields],
     );
     const isReference = (taskEditDraft?.draft.status ?? task?.status) === 'reference';
     const readOnlyProjectSections = useMemo(() => {

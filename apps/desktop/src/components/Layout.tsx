@@ -15,6 +15,7 @@ import {
     Trash2,
     History as HistoryIcon,
     BookOpen,
+    NotebookPen,
     AlertTriangle,
     Plus,
     RefreshCw,
@@ -338,6 +339,7 @@ export function Layout({
             items: [
                 { id: 'agenda', labelKey: 'nav.agenda', icon: Target, tone: 'primary' },
                 { id: 'inbox', labelKey: 'nav.inbox', icon: TASK_STATUS_ICONS.inbox, count: inboxCount, tone: 'primary' },
+                { id: 'overview', labelKey: 'nav.overview', icon: NotebookPen },
             ],
         },
         {

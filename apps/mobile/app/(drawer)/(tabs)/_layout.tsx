@@ -1,7 +1,7 @@
 import { Link, Tabs, useRouter } from 'expo-router';
 import { CommonActions } from '@react-navigation/native';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { AlertTriangle, Check, RefreshCw, Search, Inbox, Calendar, Circle, ClipboardCheck, Folder, Menu, Mic, Plus, Target } from 'lucide-react-native';
+import { AlertTriangle, Check, RefreshCw, Search, Inbox, Calendar, Circle, ClipboardCheck, Folder, Menu, Mic, NotebookPen, Plus, Target } from 'lucide-react-native';
 import { Animated, BackHandler, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -398,6 +398,21 @@ function MoreNavigationSheet({
 
             <View style={[styles.moreDivider, { backgroundColor: tc.border }]} />
 
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t('nav.next')}
+              onPress={() => onNavigate('/next')}
+              style={[styles.moreNextRow, { borderColor: tc.border, backgroundColor: tc.cardBg }]}
+            >
+              <View style={[styles.moreNextIcon, { backgroundColor: tc.filterBg }]}>
+                <IconSymbol name="arrow.right.circle.fill" size={20} color={tc.tint} />
+              </View>
+              <Text style={[styles.moreNextLabel, { color: tc.text }]} numberOfLines={1}>
+                {t('nav.next')}
+              </Text>
+              <IconSymbol name="chevron.right" size={16} color={tc.secondaryText} />
+            </Pressable>
+
             <View style={styles.morePrimaryGrid}>
               {primaryItems.map((item) => (
                 <MoreSheetTile
@@ -478,7 +493,7 @@ function NativeTabBar({
   compactNavigationFrame?: { x: number; width: number };
 }) {
   const longPressRef = useRef(false);
-  const visibleTabNames = new Set(['inbox', 'focus', 'capture', quickAccessTabRoute, 'menu']);
+  const visibleTabNames = new Set(['inbox', 'focus', 'overview', 'capture', quickAccessTabRoute, 'menu']);
   const visibleRoutes = state.routes.filter((route) => visibleTabNames.has(route.name));
 
   return (
@@ -669,6 +684,7 @@ export default function TabLayout() {
     initialValue?: string;
     initialProps?: Partial<Task> | null;
     autoRecord?: boolean;
+    onTaskSaved?: (taskId: string) => void;
   }>({
     visible: false,
     openRequestId: 0,
@@ -697,6 +713,7 @@ export default function TabLayout() {
 
 
       autoRecord: false,
+      onTaskSaved: undefined,
     }));
   }, []);
   const tabCaptureActivityValue = useMemo<TabCaptureActivityState | null>(() => (
@@ -732,6 +749,7 @@ export default function TabLayout() {
         initialValue: '',
         initialProps: null,
         autoRecord: false,
+        onTaskSaved: undefined,
       }));
     },
     );
@@ -764,6 +782,7 @@ export default function TabLayout() {
         initialValue: options?.initialValue ?? '',
         initialProps: withSelectedArea(options?.initialProps) ?? null,
         autoRecord: options?.autoRecord ?? false,
+        onTaskSaved: options?.onTaskSaved,
       };
     });
   }, [openRouteQuickCapture, withSelectedArea]);
@@ -782,6 +801,7 @@ export default function TabLayout() {
         initialValue: '',
         initialProps: null,
         autoRecord: false,
+        onTaskSaved: undefined,
       }));
       return;
     }
@@ -791,6 +811,7 @@ export default function TabLayout() {
       initialValue: '',
       initialProps: null,
       autoRecord: false,
+      onTaskSaved: undefined,
     }));
   }, [clearTabCaptureActivity, queuedCaptureFailureOwner, tabCaptureDraftActivityOwner]);
   const handleCaptureSubmissionStart = useCallback(() => {
@@ -996,6 +1017,15 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="overview"
+        options={{
+          title: t('nav.overview'),
+          tabBarIcon: ({ color, focused }) => (
+            <NotebookPen size={focused ? 26 : 24} color={color} strokeWidth={2} opacity={focused ? 1 : 0.8} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="capture-quick"
         options={{
           href: null,
@@ -1064,6 +1094,7 @@ export default function TabLayout() {
         activitySessionOwnerId={tabCaptureDraftActivityOwner}
         onSubmissionStart={handleCaptureSubmissionStart}
         onSubmissionSettled={handleCaptureSubmissionSettled}
+        onTaskSaved={captureState.onTaskSaved}
         onClose={closeQuickCapture}
       />
     )}
@@ -1201,6 +1232,28 @@ const styles = StyleSheet.create({
   },
   moreSheetContent: {
     paddingBottom: 8,
+  },
+  moreNextRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderWidth: 1,
+    borderRadius: 8,
+    minHeight: 52,
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  moreNextIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  moreNextLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '700',
   },
   morePrimaryGrid: {
     flexDirection: 'row',

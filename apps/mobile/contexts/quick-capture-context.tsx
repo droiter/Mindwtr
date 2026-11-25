@@ -7,6 +7,7 @@ export type QuickCaptureOptions = {
   autoRecord?: boolean;
   returnTo?: string;
   preserveDraft?: boolean;
+  onTaskSaved?: (taskId: string) => void;
 };
 
 type QuickCaptureContextValue = {

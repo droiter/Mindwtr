@@ -362,6 +362,7 @@ export function QuickCaptureSheet({
   activitySessionOwnerId = 'quick-capture:route-draft',
   onSubmissionStart,
   onSubmissionSettled,
+  onTaskSaved,
 }: {
   visible: boolean;
   openRequestId?: number;
@@ -372,6 +373,7 @@ export function QuickCaptureSheet({
   activitySessionOwnerId?: string;
   onSubmissionStart?: () => void;
   onSubmissionSettled?: () => void;
+  onTaskSaved?: (taskId: string) => void;
 }) {
   const { addTask, addTasks, addProject, addArea, updateSettings, projects, sections, settings, areas, getFocusedCount, setHighlightTask } = useTaskStore((state) => ({
     addTask: state.addTask,
@@ -1159,7 +1161,10 @@ export function QuickCaptureSheet({
 
       if (outcome.kind === 'refused') showToast(outcome.notice);
       durableSucceeded = outcome.kind === 'saved';
-      if (outcome.kind === 'saved') enrichMobileCaptureTitle(outcome.taskId, plan.text);
+      if (outcome.kind === 'saved') {
+        enrichMobileCaptureTitle(outcome.taskId, plan.text);
+        if (outcome.taskId) onTaskSaved?.(outcome.taskId);
+      }
       if (!submissionCoordinatorRef.current.isCurrent(session) || outcome.kind !== 'saved') return;
 
       if (outcome.next === 'open') {
@@ -1194,7 +1199,7 @@ export function QuickCaptureSheet({
         setSaving(false);
       }
     }
-  }, [addProject, addTask, beginActivitySubmission, captureContext, confirmBulkQuickAdd, finalizeClose, options, resetDraftState, setHighlightTask, settleActivitySubmission, showToast, value]);
+  }, [addProject, addTask, beginActivitySubmission, captureContext, confirmBulkQuickAdd, finalizeClose, onTaskSaved, options, resetDraftState, setHighlightTask, settleActivitySubmission, showToast, value]);
 
   const sheetMaxHeight = Math.max(260, windowHeight - Math.max(insets.top, 12) - 8);
 

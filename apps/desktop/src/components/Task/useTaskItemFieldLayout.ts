@@ -18,6 +18,7 @@ type UseTaskItemFieldLayoutParams = {
     timeEstimatesEnabled: boolean;
     hasProjectSections: boolean;
     visibleEditAttachmentsLength: number;
+    lockedDestination?: boolean;
 };
 
 export function useTaskItemFieldLayout({
@@ -28,6 +29,7 @@ export function useTaskItemFieldLayout({
     timeEstimatesEnabled,
     hasProjectSections,
     visibleEditAttachmentsLength,
+    lockedDestination = false,
 }: UseTaskItemFieldLayoutParams) {
     const {
         status: editStatus,
@@ -77,8 +79,12 @@ export function useTaskItemFieldLayout({
         const next = new Set(savedHidden.filter((id) => known.has(id)));
         if (!prioritiesEnabled) next.add('priority');
         if (!timeEstimatesEnabled) next.add('timeEstimate');
+        if (lockedDestination) {
+            next.add('project');
+            next.add('area');
+        }
         return next;
-    }, [savedHidden, prioritiesEnabled, timeEstimatesEnabled, taskEditorOrder]);
+    }, [lockedDestination, savedHidden, prioritiesEnabled, timeEstimatesEnabled, taskEditorOrder]);
     const isReference = editStatus === 'reference';
     const referenceHiddenFields = useMemo(
         () => new Set<TaskEditorFieldId>(REFERENCE_HIDDEN_TASK_FIELDS),

@@ -102,6 +102,7 @@ type QuickAddOpenDetail = {
     initialProps?: Partial<Task>;
     initialValue?: string;
     captureMode?: 'text' | 'audio';
+    lockDestination?: boolean;
 };
 
 type ParsedQuickAddTask = {
@@ -179,6 +180,7 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
     const [value, setValue] = useState('');
     const [selectedAreaId, setSelectedAreaId] = useState('');
     const [destinationOverride, setDestinationOverride] = useState<CaptureDestination>();
+    const [lockDestination, setLockDestination] = useState(false);
     const [initialProps, setInitialProps] = useState<Partial<Task> | null>(null);
     const [focusNewTask, setFocusNewTask] = useState(false);
     const [forcedCaptureMode, setForcedCaptureMode] = useState<'text' | 'audio' | null>(null);
@@ -347,6 +349,7 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
             setRecordingBusy(false);
             setIsRecording(false);
             setInitialProps(detail?.initialProps ?? null);
+            setLockDestination(Boolean(detail?.lockDestination));
             setSelectedAreaId(detail?.initialProps?.areaId ?? (detail?.initialProps?.projectId ? '' : defaultAreaId));
             setDestinationOverride(undefined);
             setAudioRecoveryPending(false);
@@ -1342,6 +1345,7 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
                         Esc
                     </button>
                 </div>
+                {!lockDestination ? (
                 <div className="px-4 pt-3 space-y-1">
                     <span className="text-xs text-muted-foreground">{t('task.destination')}</span>
                     <DestinationSelector projects={projects} areas={areas} value={effectiveDestination}
@@ -1354,6 +1358,7 @@ export function QuickAddModal({ standaloneWindow = false }: QuickAddModalProps) 
                     {selectedSection ? <p className="text-xs text-muted-foreground">{selectedSection.title}</p> : null}
                     {!resolvedDestination.available ? <p role="alert" className="text-xs text-destructive">{tFallback(t, 'quickAdd.destinationUnavailable', 'Destination unavailable. Choose another destination.')}</p> : null}
                 </div>
+                ) : null}
                 <div className="px-4 pt-4">
                     <div className="inline-flex rounded-lg border border-border bg-muted/40 p-1">
                         <button

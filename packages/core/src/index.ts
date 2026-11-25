@@ -486,3 +486,5 @@ export * from './native-host-contract-project-calendar-reference';
 
 export * from './capture-destination';
 export * from './capture-autocomplete';
+
+export * from './overview-tree';

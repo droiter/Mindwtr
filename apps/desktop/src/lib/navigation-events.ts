@@ -1,6 +1,7 @@
 export type DesktopViewId =
     | 'inbox'
     | 'agenda'
+    | 'overview'
     | 'next'
     | 'someday'
     | 'reference'
