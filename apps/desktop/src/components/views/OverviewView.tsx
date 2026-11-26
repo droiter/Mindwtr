@@ -31,7 +31,7 @@ const STATUS_ORDER: TaskStatus[] = ['inbox', 'next', 'waiting', 'someday', 'refe
 
 type TitleDraft = { nodeId: string; value: string; category: boolean };
 
-function TreeGuides({ guides }: { guides: boolean[] }) {
+function TreeGuides({ guides, stops }: { guides: boolean[]; stops: boolean[] }) {
   const depth = guides.length;
   if (depth <= 0) return null;
   return (
@@ -41,14 +41,16 @@ function TreeGuides({ guides }: { guides: boolean[] }) {
           <span
             key={`guide-${level}`}
             aria-hidden
-            className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-muted-foreground/50"
+            className={stops[level]
+              ? 'pointer-events-none absolute top-0 h-1/2 border-l border-solid border-muted-foreground/60'
+              : 'pointer-events-none absolute top-0 bottom-0 border-l border-solid border-muted-foreground/60'}
             style={{ left: level * 18 }}
           />
         ) : null
       ))}
       <span
         aria-hidden
-        className="pointer-events-none absolute border-t border-dashed border-muted-foreground/50"
+        className="pointer-events-none absolute border-t border-solid border-muted-foreground/60"
         style={{ left: (depth - 1) * 18, top: '50%', width: 18 }}
       />
     </>
@@ -209,6 +211,9 @@ export function OverviewView() {
       ...row,
       guides: ancestorsOf(row.node).map((ancestorId) => (
         index <= (lastChildRow.get(ancestorId) ?? -1)
+      )),
+      guideStops: ancestorsOf(row.node).map((ancestorId) => (
+        index === (lastChildRow.get(ancestorId) ?? -1)
       )),
     }));
   }, [collapsedNodeIds, filters, taskById, tree, tasks]);
@@ -654,7 +659,7 @@ export function OverviewView() {
                 )}
                 style={{ paddingLeft: row.depth * 18 }}
               >
-                <TreeGuides guides={row.guides ?? []} />
+                <TreeGuides guides={row.guides ?? []} stops={row.guideStops ?? []} />
                 <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
                   <Folder className="h-4 w-4 text-primary" />
                   {row.hasChildren ? (
@@ -751,7 +756,7 @@ export function OverviewView() {
               className={cn('group relative rounded-md', selectedNodeId === row.node.id ? 'bg-primary/10' : null)}
               style={{ paddingLeft: row.depth * 18 }}
             >
-              <TreeGuides guides={row.guides ?? []} />
+              <TreeGuides guides={row.guides ?? []} stops={row.guideStops ?? []} />
               {labels.projectLabel ? (
                 <div className="pl-1 text-[11px] font-semibold text-muted-foreground">{labels.projectLabel} ·</div>
               ) : null}

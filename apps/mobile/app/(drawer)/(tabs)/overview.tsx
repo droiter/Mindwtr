@@ -66,6 +66,7 @@ type FlatRow = {
   hasChildren?: boolean;
   collapsed?: boolean;
   guides?: boolean[];
+  guideStops?: boolean[];
 };
 
 type ActionSheetState =
@@ -84,32 +85,41 @@ function depthPrefix(depth: number): string {
 }
 
 const TREE_INDENT = 14;
+const GUIDE_ELBOW_Y = 19;
 
-function TreeGuides({ guides, color }: { guides: boolean[]; color: string }) {
+function TreeGuides({
+  guides,
+  stops,
+  color,
+}: {
+  guides: boolean[];
+  stops: boolean[];
+  color: string;
+}) {
   const depth = guides.length;
   if (depth <= 0) return null;
-  const dashes = [0, 1, 2, 3, 4, 5];
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
       {guides.map((visible, level) => (
         visible ? (
           <View
             key={level}
-            style={[styles.guideColumn, { left: -(depth - level) * TREE_INDENT }]}
-          >
-            <View style={styles.guideDashes}>
-              {dashes.map((dash) => (
-                <View key={dash} style={[styles.guideDash, { backgroundColor: color }]} />
-              ))}
-            </View>
-          </View>
+            style={[
+              styles.guideColumn,
+              stops[level]
+                ? { height: GUIDE_ELBOW_Y + 6 }
+                : { bottom: 0 },
+              { left: -(depth - level) * TREE_INDENT, backgroundColor: color },
+            ]}
+          />
         ) : null
       ))}
-      <View style={[styles.guideHorizontal, { left: -TREE_INDENT }]}>
-        {[0, 1, 2].map((dash) => (
-          <View key={dash} style={[styles.guideDashHorizontal, { backgroundColor: color }]} />
-        ))}
-      </View>
+      <View
+        style={[
+          styles.guideHorizontal,
+          { left: -TREE_INDENT, backgroundColor: color },
+        ]}
+      />
     </View>
   );
 }
@@ -397,6 +407,9 @@ export default function OverviewScreen() {
       ...row,
       guides: ancestorsOf(row.node).map((ancestorId) => (
         index <= (lastChildRow.get(ancestorId) ?? -1)
+      )),
+      guideStops: ancestorsOf(row.node).map((ancestorId) => (
+        index === (lastChildRow.get(ancestorId) ?? -1)
       )),
     }));
   }, [collapsedNodeIds, taskById, tree, visibleTaskIds]);
@@ -1020,7 +1033,7 @@ export default function OverviewScreen() {
                   selectedNodeId === row.node.id ? { backgroundColor: `${tc.tint}14` } : null,
                 ]}
               >
-                <TreeGuides guides={row.guides ?? []} color={tc.secondaryText} />
+                <TreeGuides guides={row.guides ?? []} stops={row.guideStops ?? []} color={tc.secondaryText} />
                 <View style={styles.categoryIcon}>
                   <Folder size={16} color={tc.tint} strokeWidth={2} />
                   {row.hasChildren ? (
@@ -1079,7 +1092,7 @@ export default function OverviewScreen() {
                 selectedNodeId === row.node.id ? { backgroundColor: `${tc.tint}14` } : null,
               ]}
             >
-              <TreeGuides guides={row.guides ?? []} color={tc.secondaryText} />
+              <TreeGuides guides={row.guides ?? []} stops={row.guideStops ?? []} color={tc.secondaryText} />
               <TouchableOpacity
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: done }}
@@ -1434,28 +1447,16 @@ const styles = StyleSheet.create({
   guideColumn: {
     position: 'absolute',
     top: -6,
-    bottom: 0,
-    width: 1,
-    overflow: 'hidden',
-    opacity: 0.7,
+    width: 1.5,
+    opacity: 0.6,
   },
-  guideDashes: {
-    flex: 1,
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  guideDash: { width: 1.5, height: 3 },
   guideHorizontal: {
     position: 'absolute',
-    top: 19,
-    width: TREE_INDENT,
-    height: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    top: GUIDE_ELBOW_Y - 0.75,
+    width: TREE_INDENT + 1,
+    height: 1.5,
+    opacity: 0.6,
   },
-  guideDashHorizontal: { width: 3.5, height: 1.5 },
   categoryTitlePressable: { flex: 1, minWidth: 0, paddingVertical: 6 },
   categoryTitle: { fontSize: 14, fontWeight: '800' },
   categoryInput: {
