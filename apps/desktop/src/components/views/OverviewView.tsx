@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, Folder, FolderPlus, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, CornerDownRight, Folder, FolderPlus, Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
   appendOverviewCategory,
   childrenOf,
   DEFAULT_PROJECT_COLOR,
+  insertOverviewCategoryAfter,
   overviewLeafLabels,
   parseOverviewTree,
   prependOverviewCategory,
@@ -214,6 +215,13 @@ export function OverviewView() {
     commitActiveTitleEdit();
   }, [commitActiveTitleEdit]);
 
+  // Clicking anywhere outside the inline input commits the title.
+  const commitPendingTitleEdit = useCallback(() => {
+    if (titleDraftRef.current) {
+      commitActiveTitleEdit();
+    }
+  }, [commitActiveTitleEdit]);
+
   const addNodeUnder = useCallback((parentId: string | null) => {
     const baseTree = commitActiveTitleEdit();
     const title = uniqueOverviewAreaTitle(t('overview.newNode'), baseTree
@@ -242,6 +250,24 @@ export function OverviewView() {
     setSelectedNodeId(appended.node.id);
     beginTitleEdit({ nodeId: appended.node.id, value: '', category: true });
   }, [addNodeUnder, categoryDisplayTitle, commitActiveTitleEdit, selectedNodeId, t]);
+
+  const addSiblingNode = useCallback(() => {
+    const selected = selectedNodeId
+      ? treeRef.current.find((node) => node.id === selectedNodeId)
+      : undefined;
+    const baseTree = commitActiveTitleEdit();
+    const parentId = selected?.parentId ?? null;
+    const title = uniqueOverviewAreaTitle(t('overview.newNode'), baseTree
+      .filter((node) => node.kind === 'category' && node.parentId === parentId)
+      .map((node) => categoryDisplayTitle(node)));
+    const inserted = selected
+      ? insertOverviewCategoryAfter(baseTree, selected.id, title)
+      : null;
+    const appended = inserted ?? prependOverviewCategory(baseTree, title, null);
+    setTree(appended.nodes);
+    setSelectedNodeId(appended.node.id);
+    beginTitleEdit({ nodeId: appended.node.id, value: '', category: true });
+  }, [beginTitleEdit, categoryDisplayTitle, commitActiveTitleEdit, selectedNodeId, t]);
 
   const addArea = useCallback(async () => {
     const baseTree = commitActiveTitleEdit();
@@ -493,7 +519,10 @@ export function OverviewView() {
             <button
               type="button"
               aria-label={t('common.clear')}
-              onClick={() => setSelectedNodeId(null)}
+              onClick={() => {
+                commitPendingTitleEdit();
+                setSelectedNodeId(null);
+              }}
               className="rounded p-0.5 hover:bg-primary/20"
             >
               <X className="h-3 w-3" />
@@ -506,7 +535,15 @@ export function OverviewView() {
           className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground"
         >
           <Plus className="h-4 w-4" />
-          {t('overview.newNode')}
+          {t('overview.addChildNode')}
+        </button>
+        <button
+          type="button"
+          onClick={addSiblingNode}
+          className="flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-foreground"
+        >
+          <CornerDownRight className="h-4 w-4" />
+          {t('overview.newSiblingNode')}
         </button>
         <button
           type="button"
@@ -518,7 +555,13 @@ export function OverviewView() {
         </button>
       </div>
 
-      <div className="flex-1 overflow-auto px-4 py-3">
+      <div
+        data-testid="overview-list"
+        className="flex-1 overflow-auto px-4 py-3"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) finishTitleEdit(true);
+        }}
+      >
         {rows.length === 0 ? (
           <div className="py-10 text-center text-sm text-muted-foreground">{t('overview.empty')}</div>
         ) : null}
@@ -529,7 +572,10 @@ export function OverviewView() {
             return (
               <div
                 key={row.node.id}
-                onClick={() => setSelectedNodeId(row.node.id)}
+                onClick={() => {
+                  commitPendingTitleEdit();
+                  setSelectedNodeId(row.node.id);
+                }}
                 className={cn(
                   'group flex cursor-default items-center gap-2 rounded-md py-1.5 hover:bg-muted/40',
                   selectedNodeId === row.node.id ? 'bg-primary/10' : null,
@@ -553,8 +599,13 @@ export function OverviewView() {
                 ) : (
                   <button
                     type="button"
-                    onClick={() => {
-                      setSelectedNodeId(row.node.id);
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      commitPendingTitleEdit();
+                      if (selectedNodeId !== row.node.id) {
+                        setSelectedNodeId(row.node.id);
+                        return;
+                      }
                       beginTitleEdit({ nodeId: row.node.id, value: categoryDisplayTitle(row.node), category: true });
                     }}
                     className="min-w-0 flex-1 truncate text-left text-sm font-bold text-foreground"
@@ -567,6 +618,7 @@ export function OverviewView() {
                   title={t('common.edit')}
                   aria-label={`${t('common.edit')}: ${categoryDisplayTitle(row.node)}`}
                   onClick={() => {
+                    commitPendingTitleEdit();
                     setSelectedNodeId(row.node.id);
                     void openNodeEditor(row.node);
                   }}
@@ -601,7 +653,10 @@ export function OverviewView() {
           return (
             <div
               key={row.node.id}
-              onClick={() => setSelectedNodeId(row.node.id)}
+              onClick={() => {
+                commitPendingTitleEdit();
+                setSelectedNodeId(row.node.id);
+              }}
               className={cn('group rounded-md', selectedNodeId === row.node.id ? 'bg-primary/10' : null)}
               style={{ paddingLeft: row.depth * 18 }}
             >
@@ -613,7 +668,10 @@ export function OverviewView() {
                   type="button"
                   aria-label={`${t('status.done')}: ${task.title}`}
                   aria-pressed={task.status === 'done'}
-                  onClick={() => toggleTaskDone(task)}
+                  onClick={() => {
+                    commitPendingTitleEdit();
+                    toggleTaskDone(task);
+                  }}
                   className={cn(
                     'mt-2 flex h-4 w-4 shrink-0 items-center justify-center rounded border',
                     task.status === 'done' ? 'border-success bg-success text-white' : 'border-muted-foreground',
@@ -645,6 +703,7 @@ export function OverviewView() {
                   aria-label={`${t('common.edit')}: ${task.title}`}
                   title={t('common.edit')}
                   onClick={() => {
+                    commitPendingTitleEdit();
                     setSelectedNodeId(row.node.id);
                     void openNodeEditor(row.node);
                   }}

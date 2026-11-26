@@ -291,6 +291,7 @@ export const jaOverrides: Record<string, string> = {
         'overview.convertNeedsLeaf': '子ノードのないカテゴリだけをタスクに変換できます',
         'overview.newNode': '新しいノード',
         'overview.addChildNode': '子ノードを追加',
+        'overview.newSiblingNode': '兄弟ノードを作成',
         'overview.inbox': '受信トレイ',
         'overview.category': 'カテゴリ',
         'overview.newCategory': '新しいカテゴリ',

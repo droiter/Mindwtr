@@ -287,6 +287,7 @@ export const en: Record<string, string> = {
         'overview.convertNeedsLeaf': 'Only category nodes without children can become tasks',
         'overview.newNode': 'New node',
         'overview.addChildNode': 'Add child node',
+        'overview.newSiblingNode': 'New sibling node',
         'overview.inbox': 'Inbox',
         'overview.category': 'Category',
         'overview.newCategory': 'New category',

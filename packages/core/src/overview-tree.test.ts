@@ -6,6 +6,7 @@ import {
   appendOverviewTask,
   childrenOf,
   ensureOverviewCategoryPath,
+  insertOverviewCategoryAfter,
   findOverviewNodeByTaskId,
   moveOverviewNode,
   normalizeOverviewTree,
@@ -69,6 +70,28 @@ describe('overview tree', () => {
     nodes = appendOverviewCategory(nodes, 'Second').nodes;
     const prepended = prependOverviewCategory(nodes, 'Top');
     expect(childrenOf(prepended.nodes, null).map((node) => node.title)).toEqual(['Top', 'First', 'Second']);
+  });
+
+  it('inserts a sibling category directly after the reference node', () => {
+    let nodes: OverviewTreeNode[] = [];
+    const first = appendOverviewCategory(nodes, 'First');
+    nodes = first.nodes;
+    const second = appendOverviewCategory(nodes, 'Second');
+    nodes = second.nodes;
+    const child = appendOverviewCategory(nodes, 'Child', second.node.id);
+    nodes = child.nodes;
+
+    const rootSibling = insertOverviewCategoryAfter(nodes, first.node.id, 'Middle');
+    expect(rootSibling).not.toBeNull();
+    nodes = rootSibling!.nodes;
+    expect(childrenOf(nodes, null).map((node) => node.title)).toEqual(['First', 'Middle', 'Second']);
+
+    const childSibling = insertOverviewCategoryAfter(nodes, child.node.id, 'Child 2');
+    expect(childSibling).not.toBeNull();
+    nodes = childSibling!.nodes;
+    expect(childrenOf(nodes, second.node.id).map((node) => node.title)).toEqual(['Child', 'Child 2']);
+
+    expect(insertOverviewCategoryAfter(nodes, 'missing', 'Nope')).toBeNull();
   });
 
   it('removes a category with all descendants', () => {

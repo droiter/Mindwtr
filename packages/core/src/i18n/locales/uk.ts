@@ -318,6 +318,7 @@ export const ukOverrides: Record<string, string> = {
     "overview.convertNeedsLeaf": "Лише категорії без дочірніх вузлів можна перетворити на завдання",
     "overview.newNode": "Новий вузол",
     "overview.addChildNode": "Додати дочірній вузол",
+    "overview.newSiblingNode": "Новий сусідній вузол",
     "overview.inbox": "Вхідні",
     "overview.category": "Категорія",
     "overview.newCategory": "Нова категорія",

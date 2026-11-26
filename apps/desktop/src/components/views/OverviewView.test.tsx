@@ -80,7 +80,7 @@ describe('OverviewView', () => {
 
   it('creates a category from the toolbar', async () => {
     renderOverview();
-    fireEvent.click(await screen.findByRole('button', { name: 'New node' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add child node' }));
     const input = await screen.findByPlaceholderText('Category name');
     fireEvent.change(input, { target: { value: 'Work' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -124,7 +124,7 @@ describe('OverviewView', () => {
 
   it('does not write task data when opening the editor for a category', async () => {
     renderOverview();
-    fireEvent.click(await screen.findByRole('button', { name: 'New node' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Add child node' }));
     const input = await screen.findByPlaceholderText('Category name');
     fireEvent.change(input, { target: { value: 'Work' } });
     fireEvent.keyDown(input, { key: 'Enter' });
@@ -132,5 +132,69 @@ describe('OverviewView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit: Work' }));
     expect(useTaskStore.getState()._allTasks).toHaveLength(0);
     expect(useUiStore.getState().editingTaskId).toBeNull();
+  });
+
+  const createCategory = async (title: string) => {
+    const buttons = await screen.findAllByRole('button', { name: 'Add child node' });
+    fireEvent.click(buttons[0]);
+    const input = await screen.findByPlaceholderText('Category name');
+    fireEvent.change(input, { target: { value: title } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+  };
+
+  it('selects a node on the first click and edits its title on the second click', async () => {
+    renderOverview();
+    await createCategory('Work');
+    fireEvent.click(await screen.findByRole('button', { name: 'New sibling node' }));
+    let input = await screen.findByPlaceholderText('Category name');
+    fireEvent.change(input, { target: { value: 'Home' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Work' }));
+    expect(screen.queryByPlaceholderText('Category name')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Work' }));
+    input = await screen.findByPlaceholderText('Category name');
+    expect(input).toBeTruthy();
+  });
+
+  it('commits the inline edit when clicking the blank list area', async () => {
+    renderOverview();
+    await createCategory('Work');
+    fireEvent.click(screen.getByRole('button', { name: 'Work' }));
+    const input = await screen.findByPlaceholderText('Category name');
+    fireEvent.change(input, { target: { value: 'Work 2' } });
+    fireEvent.mouseDown(screen.getByTestId('overview-list'));
+    expect(screen.queryByPlaceholderText('Category name')).toBeNull();
+    expect((await screen.findAllByText('Work 2')).length).toBeGreaterThan(0);
+  });
+
+  it('creates a sibling node directly after the selected node', async () => {
+    renderOverview();
+    await createCategory('Work');
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    await createCategory('Home');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Work' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New sibling node' }));
+    const input = await screen.findByPlaceholderText('Category name');
+    fireEvent.change(input, { target: { value: 'Middle' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => {
+      const saved = window.localStorage.getItem('mindwtr:overview:tree:v2');
+      expect(saved).toBeTruthy();
+      const nodes = JSON.parse(String(saved)).nodes as Array<{
+        kind: string;
+        parentId: string | null;
+        order: number;
+        title: string;
+      }>;
+      const roots = nodes
+        .filter((node) => node.kind === 'category' && node.parentId === null)
+        .sort((a, b) => a.order - b.order)
+        .map((node) => node.title);
+      expect(roots).toEqual(['Home', 'Work', 'Middle']);
+    });
   });
 });

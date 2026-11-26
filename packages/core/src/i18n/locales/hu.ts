@@ -291,6 +291,7 @@ export const huOverrides: Record<string, string> = {
     'overview.convertNeedsLeaf': 'Csak a gyermek nélküli kategóriák alakíthatók feladattá',
     'overview.newNode': 'Új csomópont',
     'overview.addChildNode': 'Gyermekcsomópont hozzáadása',
+    'overview.newSiblingNode': 'Új testvércsomópont',
     'overview.inbox': 'Beérkező',
     'overview.category': 'Kategória',
     'overview.newCategory': 'Új kategória',

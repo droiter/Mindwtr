@@ -295,6 +295,7 @@ export const faOverrides: Record<string, string> = {
         'overview.convertNeedsLeaf': 'فقط دسته‌های بدون فرزند را می‌توان به کار تبدیل کرد',
         'overview.newNode': 'گره جدید',
         'overview.addChildNode': 'افزودن گره فرزند',
+        'overview.newSiblingNode': 'گره خواهر/برادر جدید',
         'overview.inbox': 'صندوق ورودی',
         'overview.category': 'دسته',
         'overview.newCategory': 'دسته جدید',

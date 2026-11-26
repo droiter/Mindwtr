@@ -50,6 +50,7 @@ vi.mock('@/contexts/language-context', () => {
     'overview.rootCategory': 'Root',
     'overview.newNode': 'New node',
     'overview.addChildNode': 'Add child node',
+    'overview.newSiblingNode': 'New sibling node',
     'overview.convertNeedsLeaf': 'Only categories without children can become tasks',
     'overview.newArea': 'New area',
     'overview.areaNameDefault': 'New area',
@@ -97,6 +98,7 @@ vi.mock('lucide-react-native', () => {
   const Icon = (props: Record<string, unknown>) => React.createElement('Icon', props);
   return {
     Check: Icon,
+    CornerDownRight: Icon,
     Folder: Icon,
     MoreHorizontal: Icon,
     Pencil: Icon,
@@ -235,11 +237,18 @@ describe('OverviewScreen task tree', () => {
     expect(findByText(tree, 'Task next-1').length).toBe(1);
   });
 
-  it('edits a task title inline and syncs it to the store', async () => {
+  it('selects a node on the first tap and edits the title on the second tap', async () => {
     seed([makeTask('t1', { title: 'Old title' })]);
     const tree = await renderScreen();
-    act(() => {
+    await act(async () => {
       findByLabel(tree, 'Old title')[0].props.onPress();
+      await Promise.resolve();
+    });
+    expect(tree.root.findAllByType(TextInput)).toHaveLength(0);
+
+    await act(async () => {
+      findByLabel(tree, 'Old title')[0].props.onPress();
+      await Promise.resolve();
     });
     const input = tree.root.findByType(TextInput);
     act(() => {
@@ -253,11 +262,59 @@ describe('OverviewScreen task tree', () => {
     expect(updated?.title).toBe('New title');
   });
 
+  it('commits the inline edit when tapping another node', async () => {
+    seed([makeTask('t1', { title: 'One' }), makeTask('t2', { title: 'Two' })]);
+    const tree = await renderScreen();
+    await act(async () => {
+      findByLabel(tree, 'One')[0].props.onPress();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      findByLabel(tree, 'One')[0].props.onPress();
+      await Promise.resolve();
+    });
+    const input = tree.root.findByType(TextInput);
+    act(() => {
+      input.props.onChangeText('Uno');
+    });
+    await act(async () => {
+      findByLabel(tree, 'Two')[0].props.onPress();
+      await Promise.resolve();
+    });
+    expect(tree.root.findAllByType(TextInput)).toHaveLength(0);
+    const updated = core.useTaskStore.getState()._allTasks.find((task) => task.id === 't1');
+    expect(updated?.title).toBe('Uno');
+  });
+
+  it('commits the inline edit when tapping the blank list area', async () => {
+    seed([makeTask('t1', { title: 'One' })]);
+    const tree = await renderScreen();
+    await act(async () => {
+      findByLabel(tree, 'One')[0].props.onPress();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      findByLabel(tree, 'One')[0].props.onPress();
+      await Promise.resolve();
+    });
+    const input = tree.root.findByType(TextInput);
+    act(() => {
+      input.props.onChangeText('Uno');
+    });
+    await act(async () => {
+      tree.root.findByProps({ testID: 'overview-list-body' }).props.onPress();
+      await Promise.resolve();
+    });
+    expect(tree.root.findAllByType(TextInput)).toHaveLength(0);
+    const updated = core.useTaskStore.getState()._allTasks.find((task) => task.id === 't1');
+    expect(updated?.title).toBe('Uno');
+  });
+
   it('turns a leaf category into a task through the edit button, inheriting its title', async () => {
     seed([]);
     const tree = await renderScreen();
     await act(async () => {
-      findByLabel(tree, 'New node')[0].props.onPress();
+      findByLabel(tree, 'Add child node')[0].props.onPress();
       await Promise.resolve();
     });
     const input = tree.root.findByType(TextInput);
@@ -317,7 +374,7 @@ describe('OverviewScreen task tree', () => {
     seed([]);
     const tree = await renderScreen();
     await act(async () => {
-      findByLabel(tree, 'New node')[0].props.onPress();
+      findByLabel(tree, 'Add child node')[0].props.onPress();
       await Promise.resolve();
     });
     let input = tree.root.findByType(TextInput);
@@ -351,7 +408,16 @@ describe('OverviewScreen task tree', () => {
     expect(core.useTaskStore.getState().areas.map((area) => area.name)).toContain('Work');
 
     act(() => {
+      findByLabel(tree, 'Clear')[0].props.onPress();
+    });
+    await act(async () => {
       findByLabel(tree, 'Work')[0].props.onPress();
+      await Promise.resolve();
+    });
+    expect(tree.root.findAllByType(TextInput)).toHaveLength(0);
+    await act(async () => {
+      findByLabel(tree, 'Work')[0].props.onPress();
+      await Promise.resolve();
     });
     input = tree.root.findByType(TextInput);
     act(() => {
@@ -500,5 +566,62 @@ describe('OverviewScreen task tree', () => {
       await Promise.resolve();
     });
     expect(findByText(tree, 'New node 2').length).toBeGreaterThan(0);
+  });
+
+  it('creates a sibling node directly after the selected node', async () => {
+    seed([]);
+    const tree = await renderScreen();
+
+    const addTopLevelNode = async (title: string) => {
+      await act(async () => {
+        findByLabel(tree, 'Add child node')[0].props.onPress();
+        await Promise.resolve();
+      });
+      const input = tree.root.findByType(TextInput);
+      act(() => {
+        input.props.onChangeText(title);
+      });
+      await act(async () => {
+        input.props.onSubmitEditing();
+        await Promise.resolve();
+      });
+      act(() => {
+        findByLabel(tree, 'Clear')[0].props.onPress();
+      });
+    };
+
+    await addTopLevelNode('A');
+    await addTopLevelNode('B');
+
+    await act(async () => {
+      findByLabel(tree, 'A')[0].props.onPress();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      tree.root.findByProps({ testID: 'overview-new-sibling' }).props.onPress();
+      await Promise.resolve();
+    });
+    const input = tree.root.findByType(TextInput);
+    act(() => {
+      input.props.onChangeText('C');
+    });
+    await act(async () => {
+      input.props.onSubmitEditing();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    const treeWrites = storageMock.setItem.mock.calls
+      .filter(([key]) => key === 'mindwtr:overview:tree:v2');
+    const saved = JSON.parse(String(treeWrites.at(-1)?.[1]));
+    const rootCategories = saved.nodes
+      .filter((node: { kind: string; parentId: string | null }) => (
+        node.kind === 'category' && node.parentId === null
+      ))
+      .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
+      .map((node: { title: string }) => node.title);
+    expect(rootCategories).toEqual(['B', 'A', 'C']);
   });
 });

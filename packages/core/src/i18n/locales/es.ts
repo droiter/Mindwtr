@@ -291,6 +291,7 @@ export const esOverrides: Record<string, string> = {
 'overview.convertNeedsLeaf': 'Solo las categorías sin hijos pueden convertirse en tareas',
 'overview.newNode': 'Nuevo nodo',
 'overview.addChildNode': 'Añadir nodo hijo',
+'overview.newSiblingNode': 'Nuevo nodo hermano',
 'overview.inbox': 'Bandeja de entrada',
 'overview.category': 'Categoría',
 'overview.newCategory': 'Nueva categoría',

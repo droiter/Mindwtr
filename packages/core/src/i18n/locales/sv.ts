@@ -292,6 +292,7 @@ export const svOverrides: Record<string, string> = {
         'overview.convertNeedsLeaf': 'Endast kategorier utan barn kan bli uppgifter',
         'overview.newNode': 'Ny nod',
         'overview.addChildNode': 'Lägg till undernod',
+        'overview.newSiblingNode': 'Ny syskonnod',
         'overview.inbox': 'Inkorg',
         'overview.category': 'Kategori',
         'overview.newCategory': 'Ny kategori',

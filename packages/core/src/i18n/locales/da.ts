@@ -292,6 +292,7 @@ export const daOverrides: Record<string, string> = {
     'overview.convertNeedsLeaf': 'Kun kategorier uden børn kan blive opgaver',
     'overview.newNode': 'Ny node',
     'overview.addChildNode': 'Tilføj undernode',
+    'overview.newSiblingNode': 'Ny søskendenode',
     'overview.inbox': 'Indbakke',
     'overview.category': 'Kategori',
     'overview.newCategory': 'Ny kategori',

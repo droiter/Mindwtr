@@ -371,6 +371,7 @@ export const zhHant: Record<string, string> = {
         'overview.convertNeedsLeaf': '只有沒有子節點的分類才能轉為任務',
         'overview.newNode': '新增節點',
         'overview.addChildNode': '新增子節點',
+        'overview.newSiblingNode': '新增兄弟節點',
         'overview.inbox': '收集箱',
         'overview.category': '分類',
         'overview.newCategory': '新增分類',

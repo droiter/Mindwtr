@@ -81,6 +81,24 @@ export function prependOverviewCategory(
   return { nodes: [...nodes, node], node };
 }
 
+/** Insert a new category directly after a reference node in the same parent. */
+export function insertOverviewCategoryAfter(
+  nodes: OverviewTreeNode[],
+  referenceId: string,
+  title: string,
+): { nodes: OverviewTreeNode[]; node: OverviewTreeNode } | null {
+  const reference = nodes.find((candidate) => candidate.id === referenceId);
+  if (!reference) return null;
+  const appended = appendOverviewCategory(nodes, title, reference.parentId);
+  const siblings = childrenOf(nodes, reference.parentId);
+  const referenceIndex = siblings.findIndex((candidate) => candidate.id === referenceId);
+  if (referenceIndex < 0) return appended;
+  return {
+    nodes: moveOverviewNode(appended.nodes, appended.node.id, reference.parentId, referenceIndex + 1),
+    node: appended.node,
+  };
+}
+
 export function appendOverviewTask(
   nodes: OverviewTreeNode[],
   taskId: string,

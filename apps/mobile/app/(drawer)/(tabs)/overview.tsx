@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   AppState,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -16,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Check,
+  CornerDownRight,
   Folder,
   MoreHorizontal,
   Pencil,
@@ -28,6 +30,7 @@ import {
   appendOverviewCategory,
   childrenOf,
   DEFAULT_PROJECT_COLOR,
+  insertOverviewCategoryAfter,
   moveOverviewNode,
   overviewLeafLabels,
   parseOverviewTree,
@@ -413,6 +416,36 @@ export default function OverviewScreen() {
     commitActiveTitleEdit();
   }, [commitActiveTitleEdit]);
 
+  // Tapping anywhere outside the inline input commits the title and hides the
+  // keyboard, so the edit is never silently lost.
+  const commitPendingTitleEdit = useCallback(() => {
+    if (titleDraftRef.current) {
+      commitActiveTitleEdit();
+    }
+    Keyboard.dismiss();
+  }, [commitActiveTitleEdit]);
+
+  // First tap selects a node; tapping the already selected node starts inline
+  // title editing. Tapping another node first commits the pending edit.
+  const handleNodePress = useCallback((node: OverviewTreeNode, task?: Task) => {
+    commitPendingTitleEdit();
+    if (selectedNodeId !== node.id) {
+      setSelectedNodeId(node.id);
+      return;
+    }
+    if (task) {
+      beginTitleEdit({
+        nodeId: node.id,
+        taskId: task.id,
+        original: task.title,
+        value: task.title,
+      });
+      return;
+    }
+    const title = categoryDisplayTitle(node);
+    beginTitleEdit({ nodeId: node.id, original: title, value: title });
+  }, [beginTitleEdit, categoryDisplayTitle, commitPendingTitleEdit, selectedNodeId]);
+
   const addNodeUnder = useCallback((parentId: string | null) => {
     const baseTree = commitActiveTitleEdit();
     const title = uniqueOverviewAreaTitle(t('overview.newNode'), baseTree
@@ -449,6 +482,29 @@ export default function OverviewScreen() {
       value: '',
     });
   }, [addNodeUnder, beginTitleEdit, categoryDisplayTitle, commitActiveTitleEdit, selectedNodeId, t]);
+
+  const addSiblingNode = useCallback((referenceId?: string | null) => {
+    const reference = referenceId === undefined ? selectedNodeId : referenceId;
+    const selected = reference
+      ? treeRef.current.find((node) => node.id === reference)
+      : undefined;
+    const baseTree = commitActiveTitleEdit();
+    const parentId = selected?.parentId ?? null;
+    const title = uniqueOverviewAreaTitle(t('overview.newNode'), baseTree
+      .filter((node) => node.kind === 'category' && node.parentId === parentId)
+      .map((node) => categoryDisplayTitle(node)));
+    const inserted = selected
+      ? insertOverviewCategoryAfter(baseTree, selected.id, title)
+      : null;
+    const appended = inserted ?? prependOverviewCategory(baseTree, title, null);
+    setTree(appended.nodes);
+    setSelectedNodeId(appended.node.id);
+    beginTitleEdit({
+      nodeId: appended.node.id,
+      original: title,
+      value: '',
+    });
+  }, [beginTitleEdit, categoryDisplayTitle, commitActiveTitleEdit, selectedNodeId, t]);
 
   const addArea = useCallback(async () => {
     const baseTree = commitActiveTitleEdit();
@@ -713,14 +769,7 @@ export default function OverviewScreen() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={task.title}
-        onPress={() => {
-          setSelectedNodeId(row.node.id);
-          beginTitleEdit({
-          nodeId: row.node.id,
-          taskId: task.id,
-          original: task.title,
-          value: task.title,
-        }); }}
+        onPress={() => handleNodePress(row.node, task)}
         style={styles.taskTitlePressable}
       >
         {labels.projectLabel ? (
@@ -768,10 +817,7 @@ export default function OverviewScreen() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={categoryDisplayTitle(node)}
-        onPress={() => {
-          setSelectedNodeId(node.id);
-          beginTitleEdit({ nodeId: node.id, original: categoryDisplayTitle(node), value: categoryDisplayTitle(node) });
-        }}
+        onPress={() => handleNodePress(node)}
         onLongPress={() => setActionSheet({ kind: 'category', nodeId: node.id })}
         style={styles.categoryTitlePressable}
       >
@@ -793,7 +839,10 @@ export default function OverviewScreen() {
         <TouchableOpacity
           accessibilityRole="button"
           accessibilityLabel={t('filters.label')}
-          onPress={() => setFilterVisible(true)}
+          onPress={() => {
+            commitPendingTitleEdit();
+            setFilterVisible(true);
+          }}
           style={[
             styles.toolbarButton,
             { borderColor: activeFilterCount === STATUS_ORDER.length ? tc.border : tc.tint },
@@ -829,7 +878,10 @@ export default function OverviewScreen() {
             <TouchableOpacity
               accessibilityRole="button"
               accessibilityLabel={t('common.clear')}
-              onPress={() => setSelectedNodeId(null)}
+              onPress={() => {
+                commitPendingTitleEdit();
+                setSelectedNodeId(null);
+              }}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <X size={13} color={tc.tint} />
@@ -840,7 +892,7 @@ export default function OverviewScreen() {
         <TouchableOpacity
           testID="overview-new-node"
           accessibilityRole="button"
-          accessibilityLabel={t('overview.newNode')}
+          accessibilityLabel={t('overview.addChildNode')}
           onPress={addNode}
           style={[styles.addButton, { backgroundColor: tc.tint }]}
         >
@@ -853,14 +905,16 @@ export default function OverviewScreen() {
         contentContainerStyle={[styles.listContent, { paddingBottom: 160 + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
+        onScrollBeginDrag={commitPendingTitleEdit}
       >
+        <Pressable testID="overview-list-body" style={styles.listBody} onPress={commitPendingTitleEdit}>
         {rows.map((row) => {
           if (row.node.kind === 'category') {
             const count = taskCounts.get(row.node.id) ?? 0;
             return (
               <Pressable
                 key={row.node.id}
-                onPress={() => setSelectedNodeId(row.node.id)}
+                onPress={() => handleNodePress(row.node)}
                 style={[
                   styles.categoryRow,
                   { marginLeft: row.depth * 14 },
@@ -873,7 +927,11 @@ export default function OverviewScreen() {
                 <TouchableOpacity
                   accessibilityRole="button"
                   accessibilityLabel={`${t('common.edit')}: ${categoryDisplayTitle(row.node)}`}
-                  onPress={() => { setSelectedNodeId(row.node.id); void openNodeEditor(row.node); }}
+                  onPress={() => {
+                    commitPendingTitleEdit();
+                    setSelectedNodeId(row.node.id);
+                    void openNodeEditor(row.node);
+                  }}
                   style={styles.rowIconButton}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
@@ -882,7 +940,10 @@ export default function OverviewScreen() {
                 <TouchableOpacity
                   accessibilityRole="button"
                   accessibilityLabel={`${t('common.more')}: ${row.node.title}`}
-                  onPress={() => setActionSheet({ kind: 'category', nodeId: row.node.id })}
+                  onPress={() => {
+                    commitPendingTitleEdit();
+                    setActionSheet({ kind: 'category', nodeId: row.node.id });
+                  }}
                   style={styles.rowIconButton}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 >
@@ -897,7 +958,7 @@ export default function OverviewScreen() {
           return (
             <Pressable
               key={row.node.id}
-              onPress={() => setSelectedNodeId(row.node.id)}
+              onPress={() => handleNodePress(row.node, task)}
               style={[
                 styles.taskRow,
                 { marginLeft: row.depth * 14 },
@@ -908,7 +969,10 @@ export default function OverviewScreen() {
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: done }}
                 accessibilityLabel={`${t('status.done')}: ${task.title}`}
-                onPress={() => toggleTaskDone(task)}
+                onPress={() => {
+                  commitPendingTitleEdit();
+                  toggleTaskDone(task);
+                }}
                 style={styles.checkboxButton}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
@@ -928,7 +992,11 @@ export default function OverviewScreen() {
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel={`${t('common.edit')}: ${task.title}`}
-                onPress={() => { setSelectedNodeId(row.node.id); void openNodeEditor(row.node); }}
+                onPress={() => {
+                  commitPendingTitleEdit();
+                  setSelectedNodeId(row.node.id);
+                  void openNodeEditor(row.node);
+                }}
                 style={styles.rowIconButton}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
@@ -937,7 +1005,10 @@ export default function OverviewScreen() {
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel={`${t('common.more')}: ${task.title}`}
-                onPress={() => setActionSheet({ kind: 'task', nodeId: row.node.id, taskId: task.id })}
+                onPress={() => {
+                  commitPendingTitleEdit();
+                  setActionSheet({ kind: 'task', nodeId: row.node.id, taskId: task.id });
+                }}
                 style={styles.rowIconButton}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
@@ -954,12 +1025,24 @@ export default function OverviewScreen() {
         <View style={styles.footerActions}>
           <TouchableOpacity
             accessibilityRole="button"
-            accessibilityLabel={t('overview.newNode')}
+            accessibilityLabel={t('overview.addChildNode')}
             onPress={addNode}
             style={[styles.footerButton, { borderColor: tc.border }]}
           >
             <Plus size={15} color={tc.tint} />
-            <Text style={[styles.footerButtonText, { color: tc.tint }]}>{t('overview.newNode')}</Text>
+            <Text style={[styles.footerButtonText, { color: tc.tint }]}>{t('overview.addChildNode')}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            testID="overview-new-sibling"
+            accessibilityRole="button"
+            accessibilityLabel={t('overview.newSiblingNode')}
+            onPress={() => addSiblingNode()}
+            style={[styles.footerButton, { borderColor: tc.border }]}
+          >
+            <CornerDownRight size={15} color={tc.secondaryText} />
+            <Text style={[styles.footerButtonText, { color: tc.secondaryText }]}>
+              {t('overview.newSiblingNode')}
+            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             testID="overview-new-area"
@@ -974,6 +1057,7 @@ export default function OverviewScreen() {
             </Text>
           </TouchableOpacity>
         </View>
+        </Pressable>
       </ScrollView>
 
       <Sheet
@@ -997,6 +1081,16 @@ export default function OverviewScreen() {
               icon={<Plus size={17} color={tc.tint} />}
               tc={tc}
               onPress={() => addNodeUnder(actionSheet.nodeId)}
+            />
+            <SheetOption
+              label={t('overview.newSiblingNode')}
+              icon={<CornerDownRight size={17} color={tc.tint} />}
+              tc={tc}
+              onPress={() => {
+                const nodeId = actionSheet.nodeId;
+                setActionSheet(null);
+                addSiblingNode(nodeId);
+              }}
             />
             <SheetOption
               label={t('common.rename')}
@@ -1201,7 +1295,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   list: { flex: 1 },
-  listContent: { paddingHorizontal: 12, paddingTop: 10 },
+  listContent: { paddingHorizontal: 12, paddingTop: 10, flexGrow: 1 },
+  listBody: { flexGrow: 1 },
   categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',
