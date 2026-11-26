@@ -19,6 +19,9 @@ import {
   Check,
   CornerDownRight,
   Folder,
+  FolderPlus,
+  GitBranchPlus,
+  ListPlus,
   Minus,
   MoreHorizontal,
   Pencil,
@@ -1008,7 +1011,25 @@ export default function OverviewScreen() {
           onPress={addNode}
           style={[styles.addButton, { backgroundColor: tc.tint }]}
         >
-          <Plus size={20} color={tc.onTint} strokeWidth={2.6} />
+          <GitBranchPlus size={18} color={tc.onTint} strokeWidth={2.4} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          testID="overview-new-sibling"
+          accessibilityRole="button"
+          accessibilityLabel={t('overview.newSiblingNode')}
+          onPress={() => addSiblingNode()}
+          style={[styles.toolbarIconButton, { borderColor: tc.border }]}
+        >
+          <ListPlus size={18} color={tc.secondaryText} strokeWidth={2.2} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          testID="overview-new-area"
+          accessibilityRole="button"
+          accessibilityLabel={t('overview.newArea')}
+          onPress={() => { void addArea(); }}
+          style={[styles.toolbarIconButton, { borderColor: tc.border }]}
+        >
+          <FolderPlus size={18} color={tc.secondaryText} strokeWidth={2.2} />
         </TouchableOpacity>
       </View>
 
@@ -1150,41 +1171,6 @@ export default function OverviewScreen() {
           <Text style={[styles.emptyText, { color: tc.secondaryText }]}>{t('overview.empty')}</Text>
         ) : null}
 
-        <View style={styles.footerActions}>
-          <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel={t('overview.addChildNode')}
-            onPress={addNode}
-            style={[styles.footerButton, { borderColor: tc.border }]}
-          >
-            <Plus size={15} color={tc.tint} />
-            <Text style={[styles.footerButtonText, { color: tc.tint }]}>{t('overview.addChildNode')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            testID="overview-new-sibling"
-            accessibilityRole="button"
-            accessibilityLabel={t('overview.newSiblingNode')}
-            onPress={() => addSiblingNode()}
-            style={[styles.footerButton, { borderColor: tc.border }]}
-          >
-            <CornerDownRight size={15} color={tc.secondaryText} />
-            <Text style={[styles.footerButtonText, { color: tc.secondaryText }]}>
-              {t('overview.newSiblingNode')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            testID="overview-new-area"
-            accessibilityRole="button"
-            accessibilityLabel={t('overview.newArea')}
-            onPress={() => { void addArea(); }}
-            style={[styles.footerButton, { borderColor: tc.border }]}
-          >
-            <Folder size={15} color={tc.secondaryText} />
-            <Text style={[styles.footerButtonText, { color: tc.secondaryText }]}>
-              {t('overview.newArea')}
-            </Text>
-          </TouchableOpacity>
-        </View>
         </Pressable>
       </ScrollView>
 
@@ -1412,13 +1398,22 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 9,
     paddingVertical: 5,
-    maxWidth: 140,
+    maxWidth: 120,
+    flexShrink: 1,
   },
   selectedChipText: { fontSize: 11, fontWeight: '700', flexShrink: 1 },
   addButton: {
     width: 34,
     height: 34,
     borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toolbarIconButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1448,14 +1443,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -6,
     width: 1.5,
-    opacity: 0.6,
+    opacity: 0.45,
   },
   guideHorizontal: {
     position: 'absolute',
     top: GUIDE_ELBOW_Y - 0.75,
     width: TREE_INDENT + 1,
     height: 1.5,
-    opacity: 0.6,
+    opacity: 0.45,
   },
   categoryTitlePressable: { flex: 1, minWidth: 0, paddingVertical: 6 },
   categoryTitle: { fontSize: 14, fontWeight: '800' },
@@ -1515,22 +1510,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   emptyText: { fontSize: 13, textAlign: 'center', marginTop: 28 },
-  footerActions: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 18,
-  },
-  footerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  footerButtonText: { fontSize: 12, fontWeight: '700' },
+
   sheetRoot: { flex: 1, justifyContent: 'flex-end' },
   sheetBackdrop: {
     ...StyleSheet.absoluteFillObject,

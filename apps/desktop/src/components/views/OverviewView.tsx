@@ -42,15 +42,15 @@ function TreeGuides({ guides, stops }: { guides: boolean[]; stops: boolean[] }) 
             key={`guide-${level}`}
             aria-hidden
             className={stops[level]
-              ? 'pointer-events-none absolute top-0 h-1/2 border-l border-solid border-muted-foreground/60'
-              : 'pointer-events-none absolute top-0 bottom-0 border-l border-solid border-muted-foreground/60'}
+              ? 'pointer-events-none absolute top-0 h-1/2 border-l border-solid border-muted-foreground/40'
+              : 'pointer-events-none absolute top-0 bottom-0 border-l border-solid border-muted-foreground/40'}
             style={{ left: level * 18 }}
           />
         ) : null
       ))}
       <span
         aria-hidden
-        className="pointer-events-none absolute border-t border-solid border-muted-foreground/60"
+        className="pointer-events-none absolute border-t border-solid border-muted-foreground/40"
         style={{ left: (depth - 1) * 18, top: '50%', width: 18 }}
       />
     </>
