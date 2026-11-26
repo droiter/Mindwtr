@@ -17,10 +17,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Check,
-  ChevronDown,
-  ChevronRight,
   CornerDownRight,
   Folder,
+  Minus,
   MoreHorizontal,
   Pencil,
   Plus,
@@ -66,6 +65,7 @@ type FlatRow = {
   task?: Task;
   hasChildren?: boolean;
   collapsed?: boolean;
+  guides?: boolean[];
 };
 
 type ActionSheetState =
@@ -85,22 +85,25 @@ function depthPrefix(depth: number): string {
 
 const TREE_INDENT = 14;
 
-function TreeGuides({ depth, color }: { depth: number; color: string }) {
+function TreeGuides({ guides, color }: { guides: boolean[]; color: string }) {
+  const depth = guides.length;
   if (depth <= 0) return null;
-  const dashes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  const dashes = [0, 1, 2, 3, 4, 5];
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {Array.from({ length: depth }, (_, level) => (
-        <View
-          key={level}
-          style={[styles.guideColumn, { left: -(depth - level) * TREE_INDENT }]}
-        >
-          <View style={styles.guideDashes}>
-            {dashes.map((dash) => (
-              <View key={dash} style={[styles.guideDash, { backgroundColor: color }]} />
-            ))}
+      {guides.map((visible, level) => (
+        visible ? (
+          <View
+            key={level}
+            style={[styles.guideColumn, { left: -(depth - level) * TREE_INDENT }]}
+          >
+            <View style={styles.guideDashes}>
+              {dashes.map((dash) => (
+                <View key={dash} style={[styles.guideDash, { backgroundColor: color }]} />
+              ))}
+            </View>
           </View>
-        </View>
+        ) : null
       ))}
       <View style={[styles.guideHorizontal, { left: -TREE_INDENT }]}>
         {[0, 1, 2].map((dash) => (
@@ -373,7 +376,29 @@ export default function OverviewScreen() {
       }
       return result;
     };
-    return build(null, 0);
+    const flatRows = build(null, 0);
+    const nodeById = new Map(tree.map((node) => [node.id, node]));
+    const lastChildRow = new Map<string, number>();
+    flatRows.forEach((row, index) => {
+      if (row.node.parentId) lastChildRow.set(row.node.parentId, index);
+    });
+    const ancestorsOf = (node: OverviewTreeNode): string[] => {
+      const path: string[] = [];
+      const seen = new Set<string>();
+      let parentId = node.parentId;
+      while (parentId && !seen.has(parentId)) {
+        seen.add(parentId);
+        path.unshift(parentId);
+        parentId = nodeById.get(parentId)?.parentId ?? null;
+      }
+      return path;
+    };
+    return flatRows.map((row, index) => ({
+      ...row,
+      guides: ancestorsOf(row.node).map((ancestorId) => (
+        index <= (lastChildRow.get(ancestorId) ?? -1)
+      )),
+    }));
   }, [collapsedNodeIds, taskById, tree, visibleTaskIds]);
 
   const visibleCount = rows.reduce((total, row) => total + (row.task ? 1 : 0), 0);
@@ -995,15 +1020,17 @@ export default function OverviewScreen() {
                   selectedNodeId === row.node.id ? { backgroundColor: `${tc.tint}14` } : null,
                 ]}
               >
-                <TreeGuides depth={row.depth} color={tc.secondaryText} />
-                {row.hasChildren ? (
-                  row.collapsed
-                    ? <ChevronRight size={15} color={tc.secondaryText} />
-                    : <ChevronDown size={15} color={tc.secondaryText} />
-                ) : (
-                  <View style={styles.chevronPlaceholder} />
-                )}
-                <Folder size={16} color={tc.tint} strokeWidth={2} style={styles.categoryIcon} />
+                <TreeGuides guides={row.guides ?? []} color={tc.secondaryText} />
+                <View style={styles.categoryIcon}>
+                  <Folder size={16} color={tc.tint} strokeWidth={2} />
+                  {row.hasChildren ? (
+                    <View style={[styles.collapseBadge, { backgroundColor: tc.bg, borderColor: tc.tint }]}>
+                      {row.collapsed
+                        ? <Plus size={8} color={tc.tint} strokeWidth={3} />
+                        : <Minus size={8} color={tc.tint} strokeWidth={3} />}
+                    </View>
+                  ) : null}
+                </View>
                 {renderCategoryTitle(row.node)}
                 <Text style={[styles.categoryCount, { color: tc.secondaryText }]}>{count}</Text>
                 <TouchableOpacity
@@ -1052,7 +1079,7 @@ export default function OverviewScreen() {
                 selectedNodeId === row.node.id ? { backgroundColor: `${tc.tint}14` } : null,
               ]}
             >
-              <TreeGuides depth={row.depth} color={tc.secondaryText} />
+              <TreeGuides guides={row.guides ?? []} color={tc.secondaryText} />
               <TouchableOpacity
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: done }}
@@ -1392,14 +1419,25 @@ const styles = StyleSheet.create({
     minHeight: 38,
     marginTop: 6,
   },
-  categoryIcon: { marginLeft: 2 },
-  chevronPlaceholder: { width: 15, height: 15 },
+  categoryIcon: { marginLeft: 2, position: 'relative' },
+  collapseBadge: {
+    position: 'absolute',
+    right: -4,
+    bottom: -4,
+    width: 11,
+    height: 11,
+    borderRadius: 6,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   guideColumn: {
     position: 'absolute',
-    top: -8,
-    bottom: -8,
+    top: -6,
+    bottom: 0,
     width: 1,
     overflow: 'hidden',
+    opacity: 0.7,
   },
   guideDashes: {
     flex: 1,

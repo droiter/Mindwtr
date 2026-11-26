@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronDown, ChevronRight, CornerDownRight, Folder, FolderPlus, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, CornerDownRight, Folder, FolderPlus, Minus, Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
   appendOverviewCategory,
   childrenOf,
@@ -31,21 +31,24 @@ const STATUS_ORDER: TaskStatus[] = ['inbox', 'next', 'waiting', 'someday', 'refe
 
 type TitleDraft = { nodeId: string; value: string; category: boolean };
 
-function TreeGuides({ depth }: { depth: number }) {
+function TreeGuides({ guides }: { guides: boolean[] }) {
+  const depth = guides.length;
   if (depth <= 0) return null;
   return (
     <>
-      {Array.from({ length: depth }, (_, level) => (
-        <span
-          key={`guide-${level}`}
-          aria-hidden
-          className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-muted-foreground/80"
-          style={{ left: level * 18 }}
-        />
+      {guides.map((visible, level) => (
+        visible ? (
+          <span
+            key={`guide-${level}`}
+            aria-hidden
+            className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-muted-foreground/50"
+            style={{ left: level * 18 }}
+          />
+        ) : null
       ))}
       <span
         aria-hidden
-        className="pointer-events-none absolute border-t border-dashed border-muted-foreground/80"
+        className="pointer-events-none absolute border-t border-dashed border-muted-foreground/50"
         style={{ left: (depth - 1) * 18, top: '50%', width: 18 }}
       />
     </>
@@ -164,8 +167,8 @@ export function OverviewView() {
 
   const rows = useMemo(() => {
     const visible = new Set(tasks.filter((task) => filters.has(task.status)).map((task) => task.id));
-    const build = (parentId: string | null, depth: number): Array<{ node: OverviewTreeNode; depth: number; task?: Task; hasChildren?: boolean; collapsed?: boolean }> => {
-      const result: Array<{ node: OverviewTreeNode; depth: number; task?: Task; hasChildren?: boolean; collapsed?: boolean }> = [];
+    const build = (parentId: string | null, depth: number): Array<{ node: OverviewTreeNode; depth: number; task?: Task; hasChildren?: boolean; collapsed?: boolean; guides?: boolean[] }> => {
+      const result: Array<{ node: OverviewTreeNode; depth: number; task?: Task; hasChildren?: boolean; collapsed?: boolean; guides?: boolean[] }> = [];
       for (const node of childrenOf(tree, parentId)) {
         if (node.kind === 'category') {
           const hasChildren = tree.some((candidate) => candidate.parentId === node.id);
@@ -185,7 +188,29 @@ export function OverviewView() {
       }
       return result;
     };
-    return build(null, 0);
+    const flatRows = build(null, 0);
+    const nodeById = new Map(tree.map((node) => [node.id, node]));
+    const lastChildRow = new Map<string, number>();
+    flatRows.forEach((row, index) => {
+      if (row.node.parentId) lastChildRow.set(row.node.parentId, index);
+    });
+    const ancestorsOf = (node: OverviewTreeNode): string[] => {
+      const path: string[] = [];
+      const seen = new Set<string>();
+      let parentId = node.parentId;
+      while (parentId && !seen.has(parentId)) {
+        seen.add(parentId);
+        path.unshift(parentId);
+        parentId = nodeById.get(parentId)?.parentId ?? null;
+      }
+      return path;
+    };
+    return flatRows.map((row, index) => ({
+      ...row,
+      guides: ancestorsOf(row.node).map((ancestorId) => (
+        index <= (lastChildRow.get(ancestorId) ?? -1)
+      )),
+    }));
   }, [collapsedNodeIds, filters, taskById, tree, tasks]);
 
   const toggleCollapsed = useCallback((nodeId: string) => {
@@ -629,15 +654,17 @@ export function OverviewView() {
                 )}
                 style={{ paddingLeft: row.depth * 18 }}
               >
-                <TreeGuides depth={row.depth} />
-                {row.hasChildren ? (
-                  row.collapsed
-                    ? <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
-                ) : (
-                  <span className="h-4 w-4 shrink-0" aria-hidden />
-                )}
-                <Folder className="h-4 w-4 shrink-0 text-primary" />
+                <TreeGuides guides={row.guides ?? []} />
+                <span className="relative flex h-4 w-4 shrink-0 items-center justify-center">
+                  <Folder className="h-4 w-4 text-primary" />
+                  {row.hasChildren ? (
+                    <span className="absolute -bottom-1 -right-1 flex h-3 w-3 items-center justify-center rounded-full bg-background">
+                      {row.collapsed
+                        ? <Plus className="h-2 w-2 text-primary" />
+                        : <Minus className="h-2 w-2 text-primary" />}
+                    </span>
+                  ) : null}
+                </span>
                 {draft ? (
                   <input
                     autoFocus
@@ -724,7 +751,7 @@ export function OverviewView() {
               className={cn('group relative rounded-md', selectedNodeId === row.node.id ? 'bg-primary/10' : null)}
               style={{ paddingLeft: row.depth * 18 }}
             >
-              <TreeGuides depth={row.depth} />
+              <TreeGuides guides={row.guides ?? []} />
               {labels.projectLabel ? (
                 <div className="pl-1 text-[11px] font-semibold text-muted-foreground">{labels.projectLabel} ·</div>
               ) : null}

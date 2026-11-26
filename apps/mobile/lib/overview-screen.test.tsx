@@ -102,6 +102,7 @@ vi.mock('lucide-react-native', () => {
     ChevronRight: Icon,
     CornerDownRight: Icon,
     Folder: Icon,
+    Minus: Icon,
     MoreHorizontal: Icon,
     Pencil: Icon,
     Plus: Icon,
