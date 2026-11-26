@@ -169,6 +169,25 @@ describe('OverviewView', () => {
     expect((await screen.findAllByText('Work 2')).length).toBeGreaterThan(0);
   });
 
+  it('collapses and expands the whole subtree when clicking a middle node', async () => {
+    seed([makeTask('p', { projectId: 'proj-1' })]);
+    useTaskStore.setState({
+      projects: [{ id: 'proj-1', title: 'Website', areaId: 'area-1', status: 'active', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+      _allProjects: [{ id: 'proj-1', title: 'Website', areaId: 'area-1', status: 'active', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+      areas: [{ id: 'area-1', name: 'Work', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+      _allAreas: [{ id: 'area-1', name: 'Work', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+    } as never);
+    renderOverview();
+    expect(await screen.findByTestId('task-item-p')).toBeTruthy();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Work' }));
+    expect(screen.queryByTestId('task-item-p')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Website' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Work' }));
+    expect(await screen.findByTestId('task-item-p')).toBeTruthy();
+  });
+
   it('creates a sibling node directly after the selected node', async () => {
     renderOverview();
     await createCategory('Work');

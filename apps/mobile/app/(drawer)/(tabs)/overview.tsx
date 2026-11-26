@@ -17,6 +17,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Check,
+  ChevronDown,
+  ChevronRight,
   CornerDownRight,
   Folder,
   MoreHorizontal,
@@ -62,6 +64,8 @@ type FlatRow = {
   node: OverviewTreeNode;
   depth: number;
   task?: Task;
+  hasChildren?: boolean;
+  collapsed?: boolean;
 };
 
 type ActionSheetState =
@@ -77,6 +81,34 @@ type TitleDraft = {
 
 function depthPrefix(depth: number): string {
   return depth > 0 ? `${'  '.repeat(depth)}· ` : '';
+}
+
+const TREE_INDENT = 14;
+
+function TreeGuides({ depth, color }: { depth: number; color: string }) {
+  if (depth <= 0) return null;
+  const dashes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {Array.from({ length: depth }, (_, level) => (
+        <View
+          key={level}
+          style={[styles.guideColumn, { left: -(depth - level) * TREE_INDENT }]}
+        >
+          <View style={styles.guideDashes}>
+            {dashes.map((dash) => (
+              <View key={dash} style={[styles.guideDash, { backgroundColor: color }]} />
+            ))}
+          </View>
+        </View>
+      ))}
+      <View style={[styles.guideHorizontal, { left: -TREE_INDENT }]}>
+        {[0, 1, 2].map((dash) => (
+          <View key={dash} style={[styles.guideDashHorizontal, { backgroundColor: color }]} />
+        ))}
+      </View>
+    </View>
+  );
 }
 
 function statusLabelKey(status: TaskStatus): string {
@@ -202,6 +234,8 @@ export default function OverviewScreen() {
   const [titleDraft, setTitleDraft] = useState<TitleDraft | null>(null);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [collapsedNodeIds, setCollapsedNodeIds] = useState<Set<string>>(() => new Set());
+  const longPressSkipRef = useRef<string | null>(null);
   const [lockedDestinationFields, setLockedDestinationFields] = useState<('area' | 'project')[]>([]);
   const pendingEditRef = useRef<{ mode: 'create' | 'update'; nodeId: string; taskId?: string; fallbackTitle: string } | null>(null);
 
@@ -322,10 +356,14 @@ export default function OverviewScreen() {
       const result: FlatRow[] = [];
       for (const node of childrenOf(tree, parentId)) {
         if (node.kind === 'category') {
-          const childRows = build(node.id, depth + 1);
           const hasChildren = tree.some((candidate) => candidate.parentId === node.id);
+          if (collapsedNodeIds.has(node.id)) {
+            result.push({ node, depth, hasChildren, collapsed: true });
+            continue;
+          }
+          const childRows = build(node.id, depth + 1);
           if (hasChildren && childRows.length === 0) continue;
-          result.push({ node, depth });
+          result.push({ node, depth, hasChildren, collapsed: false });
           result.push(...childRows);
         } else {
           const task = node.taskId ? taskById.get(node.taskId) : undefined;
@@ -336,7 +374,7 @@ export default function OverviewScreen() {
       return result;
     };
     return build(null, 0);
-  }, [taskById, tree, visibleTaskIds]);
+  }, [collapsedNodeIds, taskById, tree, visibleTaskIds]);
 
   const visibleCount = rows.reduce((total, row) => total + (row.task ? 1 : 0), 0);
 
@@ -425,10 +463,26 @@ export default function OverviewScreen() {
     Keyboard.dismiss();
   }, [commitActiveTitleEdit]);
 
+  const toggleCollapsed = useCallback((nodeId: string) => {
+    setCollapsedNodeIds((current) => {
+      const next = new Set(current);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  }, []);
+
   // First tap selects a node; tapping the already selected node starts inline
-  // title editing. Tapping another node first commits the pending edit.
+  // title editing. Middle nodes toggle their whole subtree instead, so they stay
+  // collapsed/expanded without opening the title editor.
   const handleNodePress = useCallback((node: OverviewTreeNode, task?: Task) => {
     commitPendingTitleEdit();
+    const hasChildren = treeRef.current.some((candidate) => candidate.parentId === node.id);
+    if (node.kind === 'category' && hasChildren) {
+      setSelectedNodeId(node.id);
+      toggleCollapsed(node.id);
+      return;
+    }
     if (selectedNodeId !== node.id) {
       setSelectedNodeId(node.id);
       return;
@@ -444,10 +498,18 @@ export default function OverviewScreen() {
     }
     const title = categoryDisplayTitle(node);
     beginTitleEdit({ nodeId: node.id, original: title, value: title });
-  }, [beginTitleEdit, categoryDisplayTitle, commitPendingTitleEdit, selectedNodeId]);
+  }, [beginTitleEdit, categoryDisplayTitle, commitPendingTitleEdit, selectedNodeId, toggleCollapsed]);
 
   const addNodeUnder = useCallback((parentId: string | null) => {
     const baseTree = commitActiveTitleEdit();
+    if (parentId) {
+      setCollapsedNodeIds((current) => {
+        if (!current.has(parentId)) return current;
+        const next = new Set(current);
+        next.delete(parentId);
+        return next;
+      });
+    }
     const title = uniqueOverviewAreaTitle(t('overview.newNode'), baseTree
       .filter((node) => node.kind === 'category' && node.parentId === parentId)
       .map((node) => categoryDisplayTitle(node)));
@@ -817,8 +879,20 @@ export default function OverviewScreen() {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={categoryDisplayTitle(node)}
-        onPress={() => handleNodePress(node)}
-        onLongPress={() => setActionSheet({ kind: 'category', nodeId: node.id })}
+        onPress={() => {
+          if (longPressSkipRef.current === node.id) {
+            longPressSkipRef.current = null;
+            return;
+          }
+          handleNodePress(node);
+        }}
+        onLongPress={() => {
+          longPressSkipRef.current = node.id;
+          setTimeout(() => {
+            if (longPressSkipRef.current === node.id) longPressSkipRef.current = null;
+          }, 800);
+          setActionSheet({ kind: 'category', nodeId: node.id });
+        }}
         style={styles.categoryTitlePressable}
       >
         <Text style={[styles.categoryTitle, { color: tc.text }]} numberOfLines={1}>
@@ -917,10 +991,18 @@ export default function OverviewScreen() {
                 onPress={() => handleNodePress(row.node)}
                 style={[
                   styles.categoryRow,
-                  { marginLeft: row.depth * 14 },
+                  { marginLeft: row.depth * TREE_INDENT },
                   selectedNodeId === row.node.id ? { backgroundColor: `${tc.tint}14` } : null,
                 ]}
               >
+                <TreeGuides depth={row.depth} color={tc.secondaryText} />
+                {row.hasChildren ? (
+                  row.collapsed
+                    ? <ChevronRight size={15} color={tc.secondaryText} />
+                    : <ChevronDown size={15} color={tc.secondaryText} />
+                ) : (
+                  <View style={styles.chevronPlaceholder} />
+                )}
                 <Folder size={16} color={tc.tint} strokeWidth={2} style={styles.categoryIcon} />
                 {renderCategoryTitle(row.node)}
                 <Text style={[styles.categoryCount, { color: tc.secondaryText }]}>{count}</Text>
@@ -930,6 +1012,11 @@ export default function OverviewScreen() {
                   onPress={() => {
                     commitPendingTitleEdit();
                     setSelectedNodeId(row.node.id);
+                    if (row.hasChildren) {
+                      const title = categoryDisplayTitle(row.node);
+                      beginTitleEdit({ nodeId: row.node.id, original: title, value: title });
+                      return;
+                    }
                     void openNodeEditor(row.node);
                   }}
                   style={styles.rowIconButton}
@@ -961,10 +1048,11 @@ export default function OverviewScreen() {
               onPress={() => handleNodePress(row.node, task)}
               style={[
                 styles.taskRow,
-                { marginLeft: row.depth * 14 },
+                { marginLeft: row.depth * TREE_INDENT },
                 selectedNodeId === row.node.id ? { backgroundColor: `${tc.tint}14` } : null,
               ]}
             >
+              <TreeGuides depth={row.depth} color={tc.secondaryText} />
               <TouchableOpacity
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: done }}
@@ -1305,6 +1393,31 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   categoryIcon: { marginLeft: 2 },
+  chevronPlaceholder: { width: 15, height: 15 },
+  guideColumn: {
+    position: 'absolute',
+    top: -8,
+    bottom: -8,
+    width: 1,
+    overflow: 'hidden',
+  },
+  guideDashes: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  guideDash: { width: 1.5, height: 3 },
+  guideHorizontal: {
+    position: 'absolute',
+    top: 19,
+    width: TREE_INDENT,
+    height: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  guideDashHorizontal: { width: 3.5, height: 1.5 },
   categoryTitlePressable: { flex: 1, minWidth: 0, paddingVertical: 6 },
   categoryTitle: { fontSize: 14, fontWeight: '800' },
   categoryInput: {

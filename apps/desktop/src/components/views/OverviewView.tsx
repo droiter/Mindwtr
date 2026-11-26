@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, CornerDownRight, Folder, FolderPlus, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { Check, ChevronDown, ChevronRight, CornerDownRight, Folder, FolderPlus, Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
   appendOverviewCategory,
   childrenOf,
@@ -31,6 +31,27 @@ const STATUS_ORDER: TaskStatus[] = ['inbox', 'next', 'waiting', 'someday', 'refe
 
 type TitleDraft = { nodeId: string; value: string; category: boolean };
 
+function TreeGuides({ depth }: { depth: number }) {
+  if (depth <= 0) return null;
+  return (
+    <>
+      {Array.from({ length: depth }, (_, level) => (
+        <span
+          key={`guide-${level}`}
+          aria-hidden
+          className="pointer-events-none absolute top-0 bottom-0 border-l border-dashed border-muted-foreground/80"
+          style={{ left: level * 18 }}
+        />
+      ))}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute border-t border-dashed border-muted-foreground/80"
+        style={{ left: (depth - 1) * 18, top: '50%', width: 18 }}
+      />
+    </>
+  );
+}
+
 export function OverviewView() {
   const { t } = useLanguage();
   const { tasks, projects, areas, updateTask, deleteTask, addArea: addAreaToStore, updateArea, addProject, deleteArea, isLoading } = useTaskStore((state) => ({
@@ -52,6 +73,7 @@ export function OverviewView() {
   const [filters, setFilters] = useState<Set<TaskStatus>>(() => new Set(STATUS_ORDER));
   const [titleDraft, setTitleDraft] = useState<TitleDraft | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [collapsedNodeIds, setCollapsedNodeIds] = useState<Set<string>>(() => new Set());
   const [lockedTaskIds, setLockedTaskIds] = useState<Set<string>>(() => new Set());
   const [lockedDestinations, setLockedDestinations] = useState<Map<string, { areaId?: string; projectId?: string }>>(() => new Map());
   const pendingConversionUnsubscribeRef = useRef<null | (() => void)>(null);
@@ -142,14 +164,18 @@ export function OverviewView() {
 
   const rows = useMemo(() => {
     const visible = new Set(tasks.filter((task) => filters.has(task.status)).map((task) => task.id));
-    const build = (parentId: string | null, depth: number): Array<{ node: OverviewTreeNode; depth: number; task?: Task }> => {
-      const result: Array<{ node: OverviewTreeNode; depth: number; task?: Task }> = [];
+    const build = (parentId: string | null, depth: number): Array<{ node: OverviewTreeNode; depth: number; task?: Task; hasChildren?: boolean; collapsed?: boolean }> => {
+      const result: Array<{ node: OverviewTreeNode; depth: number; task?: Task; hasChildren?: boolean; collapsed?: boolean }> = [];
       for (const node of childrenOf(tree, parentId)) {
         if (node.kind === 'category') {
-          const children = build(node.id, depth + 1);
           const hasChildren = tree.some((candidate) => candidate.parentId === node.id);
+          if (collapsedNodeIds.has(node.id)) {
+            result.push({ node, depth, hasChildren, collapsed: true });
+            continue;
+          }
+          const children = build(node.id, depth + 1);
           if (hasChildren && children.length === 0) continue;
-          result.push({ node, depth });
+          result.push({ node, depth, hasChildren, collapsed: false });
           result.push(...children);
         } else {
           const task = node.taskId ? taskById.get(node.taskId) : undefined;
@@ -160,7 +186,16 @@ export function OverviewView() {
       return result;
     };
     return build(null, 0);
-  }, [filters, taskById, tree, tasks]);
+  }, [collapsedNodeIds, filters, taskById, tree, tasks]);
+
+  const toggleCollapsed = useCallback((nodeId: string) => {
+    setCollapsedNodeIds((current) => {
+      const next = new Set(current);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      return next;
+    });
+  }, []);
 
   const visibleCount = rows.filter((row) => row.task).length;
 
@@ -224,6 +259,14 @@ export function OverviewView() {
 
   const addNodeUnder = useCallback((parentId: string | null) => {
     const baseTree = commitActiveTitleEdit();
+    if (parentId) {
+      setCollapsedNodeIds((current) => {
+        if (!current.has(parentId)) return current;
+        const next = new Set(current);
+        next.delete(parentId);
+        return next;
+      });
+    }
     const title = uniqueOverviewAreaTitle(t('overview.newNode'), baseTree
       .filter((node) => node.kind === 'category' && node.parentId === parentId)
       .map((node) => categoryDisplayTitle(node)));
@@ -572,16 +615,28 @@ export function OverviewView() {
             return (
               <div
                 key={row.node.id}
-                onClick={() => {
+                onClick={(event) => {
+                  if (event.target instanceof Element && event.target.closest('button, a, input, [role="button"]')) {
+                    return;
+                  }
                   commitPendingTitleEdit();
                   setSelectedNodeId(row.node.id);
+                  if (row.hasChildren) toggleCollapsed(row.node.id);
                 }}
                 className={cn(
-                  'group flex cursor-default items-center gap-2 rounded-md py-1.5 hover:bg-muted/40',
+                  'group relative flex cursor-default items-center gap-2 rounded-md py-1.5 hover:bg-muted/40',
                   selectedNodeId === row.node.id ? 'bg-primary/10' : null,
                 )}
                 style={{ paddingLeft: row.depth * 18 }}
               >
+                <TreeGuides depth={row.depth} />
+                {row.hasChildren ? (
+                  row.collapsed
+                    ? <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    : <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <span className="h-4 w-4 shrink-0" aria-hidden />
+                )}
                 <Folder className="h-4 w-4 shrink-0 text-primary" />
                 {draft ? (
                   <input
@@ -602,6 +657,11 @@ export function OverviewView() {
                     onClick={(event) => {
                       event.stopPropagation();
                       commitPendingTitleEdit();
+                      if (row.hasChildren) {
+                        if (selectedNodeId !== row.node.id) setSelectedNodeId(row.node.id);
+                        toggleCollapsed(row.node.id);
+                        return;
+                      }
                       if (selectedNodeId !== row.node.id) {
                         setSelectedNodeId(row.node.id);
                         return;
@@ -620,6 +680,10 @@ export function OverviewView() {
                   onClick={() => {
                     commitPendingTitleEdit();
                     setSelectedNodeId(row.node.id);
+                    if (row.hasChildren) {
+                      beginTitleEdit({ nodeId: row.node.id, value: categoryDisplayTitle(row.node), category: true });
+                      return;
+                    }
                     void openNodeEditor(row.node);
                   }}
                   className="rounded p-1 text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground group-hover:opacity-100"
@@ -657,9 +721,10 @@ export function OverviewView() {
                 commitPendingTitleEdit();
                 setSelectedNodeId(row.node.id);
               }}
-              className={cn('group rounded-md', selectedNodeId === row.node.id ? 'bg-primary/10' : null)}
+              className={cn('group relative rounded-md', selectedNodeId === row.node.id ? 'bg-primary/10' : null)}
               style={{ paddingLeft: row.depth * 18 }}
             >
+              <TreeGuides depth={row.depth} />
               {labels.projectLabel ? (
                 <div className="pl-1 text-[11px] font-semibold text-muted-foreground">{labels.projectLabel} ·</div>
               ) : null}

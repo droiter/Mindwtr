@@ -98,6 +98,8 @@ vi.mock('lucide-react-native', () => {
   const Icon = (props: Record<string, unknown>) => React.createElement('Icon', props);
   return {
     Check: Icon,
+    ChevronDown: Icon,
+    ChevronRight: Icon,
     CornerDownRight: Icon,
     Folder: Icon,
     MoreHorizontal: Icon,
@@ -566,6 +568,31 @@ describe('OverviewScreen task tree', () => {
       await Promise.resolve();
     });
     expect(findByText(tree, 'New node 2').length).toBeGreaterThan(0);
+  });
+
+  it('collapses and expands the whole subtree when tapping a middle node', async () => {
+    seed([makeTask('p', { projectId: 'proj-1' })], {
+      projects: [{ id: 'proj-1', title: 'Website', areaId: 'area-1', status: 'active', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+      _allProjects: [{ id: 'proj-1', title: 'Website', areaId: 'area-1', status: 'active', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+      areas: [{ id: 'area-1', name: 'Work', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+      _allAreas: [{ id: 'area-1', name: 'Work', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+    });
+    const tree = await renderScreen();
+    expect(findByText(tree, 'Task p').length).toBe(1);
+
+    await act(async () => {
+      findByLabel(tree, 'Work')[0].props.onPress();
+      await Promise.resolve();
+    });
+    expect(findByText(tree, 'Task p').length).toBe(0);
+    expect(findByText(tree, 'Website').length).toBe(0);
+
+    await act(async () => {
+      findByLabel(tree, 'Work')[0].props.onPress();
+      await Promise.resolve();
+    });
+    expect(findByText(tree, 'Website').length).toBeGreaterThan(0);
+    expect(findByText(tree, 'Task p').length).toBe(1);
   });
 
   it('creates a sibling node directly after the selected node', async () => {
