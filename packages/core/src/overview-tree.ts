@@ -236,6 +236,21 @@ export function moveOverviewNode(
   ));
 }
 
+/** Move a node one slot up (delta -1) or down (delta 1) among its siblings. */
+export function moveOverviewNodeSibling(
+  nodes: OverviewTreeNode[],
+  id: string,
+  delta: -1 | 1,
+): OverviewTreeNode[] {
+  const node = nodes.find((candidate) => candidate.id === id);
+  if (!node) return nodes;
+  const siblings = childrenOf(nodes, node.parentId);
+  const index = siblings.findIndex((candidate) => candidate.id === id);
+  const target = index + delta;
+  if (index < 0 || target < 0 || target >= siblings.length) return nodes;
+  return moveOverviewNode(nodes, id, node.parentId, target);
+}
+
 export function renameOverviewCategory(
   nodes: OverviewTreeNode[],
   id: string,

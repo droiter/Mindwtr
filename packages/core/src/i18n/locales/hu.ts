@@ -292,6 +292,8 @@ export const huOverrides: Record<string, string> = {
     'overview.newNode': 'Új csomópont',
     'overview.addChildNode': 'Gyermekcsomópont hozzáadása',
     'overview.newSiblingNode': 'Új testvércsomópont',
+    'overview.moveNodeUp': 'Mozgatás fel',
+    'overview.moveNodeDown': 'Mozgatás le',
     'overview.inbox': 'Beérkező',
     'overview.category': 'Kategória',
     'overview.newCategory': 'Új kategória',

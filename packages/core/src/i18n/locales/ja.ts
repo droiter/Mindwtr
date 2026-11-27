@@ -292,6 +292,8 @@ export const jaOverrides: Record<string, string> = {
         'overview.newNode': '新しいノード',
         'overview.addChildNode': '子ノードを追加',
         'overview.newSiblingNode': '兄弟ノードを作成',
+        'overview.moveNodeUp': '上へ移動',
+        'overview.moveNodeDown': '下へ移動',
         'overview.inbox': '受信トレイ',
         'overview.category': 'カテゴリ',
         'overview.newCategory': '新しいカテゴリ',

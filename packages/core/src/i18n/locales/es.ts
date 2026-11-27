@@ -292,6 +292,8 @@ export const esOverrides: Record<string, string> = {
 'overview.newNode': 'Nuevo nodo',
 'overview.addChildNode': 'Añadir nodo hijo',
 'overview.newSiblingNode': 'Nuevo nodo hermano',
+'overview.moveNodeUp': 'Subir',
+'overview.moveNodeDown': 'Bajar',
 'overview.inbox': 'Bandeja de entrada',
 'overview.category': 'Categoría',
 'overview.newCategory': 'Nueva categoría',

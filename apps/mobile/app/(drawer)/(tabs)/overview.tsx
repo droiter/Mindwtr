@@ -16,6 +16,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
+  ArrowDown,
+  ArrowUp,
   Check,
   CornerDownRight,
   Folder,
@@ -37,6 +39,7 @@ import {
   getTaskPriorityToneColor,
   insertOverviewCategoryAfter,
   moveOverviewNode,
+  moveOverviewNodeSibling,
   overviewLeafLabels,
   parseOverviewTree,
   prependOverviewCategory,
@@ -904,6 +907,26 @@ export default function OverviewScreen() {
     [priorityColors],
   );
 
+  const selectedSiblingIndex = useMemo(() => {
+    if (!selectedNodeId) return -1;
+    const node = tree.find((candidate) => candidate.id === selectedNodeId);
+    if (!node) return -1;
+    return childrenOf(tree, node.parentId).findIndex((candidate) => candidate.id === node.id);
+  }, [selectedNodeId, tree]);
+  const selectedSiblingCount = useMemo(() => {
+    if (!selectedNodeId) return 0;
+    const node = tree.find((candidate) => candidate.id === selectedNodeId);
+    return node ? childrenOf(tree, node.parentId).length : 0;
+  }, [selectedNodeId, tree]);
+  const canMoveUp = selectedSiblingIndex > 0;
+  const canMoveDown = selectedSiblingIndex >= 0 && selectedSiblingIndex < selectedSiblingCount - 1;
+
+  const moveSelectedNode = useCallback((delta: -1 | 1) => {
+    if (!selectedNodeId) return;
+    const nextTree = commitActiveTitleEdit();
+    setTree(moveOverviewNodeSibling(nextTree, selectedNodeId, delta));
+  }, [commitActiveTitleEdit, selectedNodeId]);
+
   const renderTaskTitle = (row: FlatRow) => {
     const task = row.task as Task;
     const labels = overviewLeafLabels(tree, row.node);
@@ -1061,6 +1084,28 @@ export default function OverviewScreen() {
           </View>
         ) : null}
         <View style={styles.toolbarSpacer} />
+        <TouchableOpacity
+          testID="overview-move-up"
+          accessibilityRole="button"
+          accessibilityLabel={t('overview.moveNodeUp')}
+          accessibilityState={{ disabled: !canMoveUp }}
+          disabled={!canMoveUp}
+          onPress={() => moveSelectedNode(-1)}
+          style={[styles.toolbarIconButton, { borderColor: tc.border, opacity: canMoveUp ? 1 : 0.35 }]}
+        >
+          <ArrowUp size={16} color={tc.secondaryText} strokeWidth={2.2} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          testID="overview-move-down"
+          accessibilityRole="button"
+          accessibilityLabel={t('overview.moveNodeDown')}
+          accessibilityState={{ disabled: !canMoveDown }}
+          disabled={!canMoveDown}
+          onPress={() => moveSelectedNode(1)}
+          style={[styles.toolbarIconButton, { borderColor: tc.border, opacity: canMoveDown ? 1 : 0.35 }]}
+        >
+          <ArrowDown size={16} color={tc.secondaryText} strokeWidth={2.2} />
+        </TouchableOpacity>
         <TouchableOpacity
           testID="overview-new-node"
           accessibilityRole="button"
@@ -1426,6 +1471,7 @@ export default function OverviewScreen() {
       <TaskEditModal
         visible={Boolean(editingTask)}
         task={editingTask}
+        defaultTab="task"
         lockedDestinationFields={lockedDestinationFields}
         forcePriority
         onClose={() => { pendingEditRef.current = null; setEditingTask(null); setLockedDestinationFields([]); }}

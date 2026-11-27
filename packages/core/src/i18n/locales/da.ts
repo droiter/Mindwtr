@@ -293,6 +293,8 @@ export const daOverrides: Record<string, string> = {
     'overview.newNode': 'Ny node',
     'overview.addChildNode': 'Tilføj undernode',
     'overview.newSiblingNode': 'Ny søskendenode',
+    'overview.moveNodeUp': 'Flyt op',
+    'overview.moveNodeDown': 'Flyt ned',
     'overview.inbox': 'Indbakke',
     'overview.category': 'Kategori',
     'overview.newCategory': 'Ny kategori',

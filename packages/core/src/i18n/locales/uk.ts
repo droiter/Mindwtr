@@ -319,6 +319,8 @@ export const ukOverrides: Record<string, string> = {
     "overview.newNode": "Новий вузол",
     "overview.addChildNode": "Додати дочірній вузол",
     "overview.newSiblingNode": "Новий сусідній вузол",
+    "overview.moveNodeUp": "Перемістити вгору",
+    "overview.moveNodeDown": "Перемістити вниз",
     "overview.inbox": "Вхідні",
     "overview.category": "Категорія",
     "overview.newCategory": "Нова категорія",

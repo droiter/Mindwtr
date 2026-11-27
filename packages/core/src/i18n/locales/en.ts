@@ -288,6 +288,8 @@ export const en: Record<string, string> = {
         'overview.newNode': 'New node',
         'overview.addChildNode': 'Add child node',
         'overview.newSiblingNode': 'New sibling node',
+        'overview.moveNodeUp': 'Move up',
+        'overview.moveNodeDown': 'Move down',
         'overview.inbox': 'Inbox',
         'overview.category': 'Category',
         'overview.newCategory': 'New category',

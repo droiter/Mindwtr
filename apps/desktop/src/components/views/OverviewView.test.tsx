@@ -201,6 +201,32 @@ describe('OverviewView', () => {
     expect(await screen.findByTestId('task-row-p')).toBeTruthy();
   });
 
+  it('moves the selected node up and down among its siblings', async () => {
+    renderOverview();
+    await createCategory('Work');
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+    await createCategory('Home');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Work' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move up' }));
+
+    await waitFor(() => {
+      const saved = window.localStorage.getItem('mindwtr:overview:tree:v2');
+      expect(saved).toBeTruthy();
+      const nodes = JSON.parse(String(saved)).nodes as Array<{
+        kind: string;
+        parentId: string | null;
+        order: number;
+        title: string;
+      }>;
+      const roots = nodes
+        .filter((node) => node.kind === 'category' && node.parentId === null)
+        .sort((a, b) => a.order - b.order)
+        .map((node) => node.title);
+      expect(roots).toEqual(['Work', 'Home']);
+    });
+  });
+
   it('creates a sibling node directly after the selected node', async () => {
     renderOverview();
     await createCategory('Work');

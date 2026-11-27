@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, CornerDownRight, Folder, FolderPlus, Minus, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, CornerDownRight, Folder, FolderPlus, Minus, Pencil, Plus, Trash2, X } from 'lucide-react';
 import {
   appendOverviewCategory,
   childrenOf,
@@ -9,6 +9,7 @@ import {
   getTaskPriorityToneColor,
   getTaskUrgency,
   insertOverviewCategoryAfter,
+  moveOverviewNodeSibling,
   overviewLeafLabels,
   parseOverviewTree,
   prependOverviewCategory,
@@ -309,6 +310,20 @@ export function OverviewView() {
       commitActiveTitleEdit();
     }
   }, [commitActiveTitleEdit]);
+
+  const selectedNode = selectedNodeId ? tree.find((candidate) => candidate.id === selectedNodeId) : undefined;
+  const selectedSiblings = selectedNode ? childrenOf(tree, selectedNode.parentId) : [];
+  const selectedSiblingIndex = selectedNode
+    ? selectedSiblings.findIndex((candidate) => candidate.id === selectedNode.id)
+    : -1;
+  const canMoveUp = selectedSiblingIndex > 0;
+  const canMoveDown = selectedSiblingIndex >= 0 && selectedSiblingIndex < selectedSiblings.length - 1;
+
+  const moveSelectedNode = useCallback((delta: -1 | 1) => {
+    if (!selectedNodeId) return;
+    const nextTree = commitActiveTitleEdit();
+    setTree(moveOverviewNodeSibling(nextTree, selectedNodeId, delta));
+  }, [commitActiveTitleEdit, selectedNodeId]);
 
   const addNodeUnder = useCallback((parentId: string | null) => {
     const baseTree = commitActiveTitleEdit();
@@ -655,6 +670,34 @@ export function OverviewView() {
         >
           <Folder className="h-4 w-4" />
           {t('overview.newArea')}
+        </button>
+        <button
+          type="button"
+          title={t('overview.moveNodeUp')}
+          aria-label={t('overview.moveNodeUp')}
+          disabled={!canMoveUp}
+          onClick={() => moveSelectedNode(-1)}
+          className={cn(
+            'flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-foreground',
+            canMoveUp ? null : 'cursor-not-allowed opacity-35',
+          )}
+        >
+          <ArrowUp className="h-4 w-4" />
+          {t('overview.moveNodeUp')}
+        </button>
+        <button
+          type="button"
+          title={t('overview.moveNodeDown')}
+          aria-label={t('overview.moveNodeDown')}
+          disabled={!canMoveDown}
+          onClick={() => moveSelectedNode(1)}
+          className={cn(
+            'flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-semibold text-foreground',
+            canMoveDown ? null : 'cursor-not-allowed opacity-35',
+          )}
+        >
+          <ArrowDown className="h-4 w-4" />
+          {t('overview.moveNodeDown')}
         </button>
       </div>
 

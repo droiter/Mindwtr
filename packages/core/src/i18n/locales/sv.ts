@@ -293,6 +293,8 @@ export const svOverrides: Record<string, string> = {
         'overview.newNode': 'Ny nod',
         'overview.addChildNode': 'Lägg till undernod',
         'overview.newSiblingNode': 'Ny syskonnod',
+        'overview.moveNodeUp': 'Flytta upp',
+        'overview.moveNodeDown': 'Flytta ned',
         'overview.inbox': 'Inkorg',
         'overview.category': 'Kategori',
         'overview.newCategory': 'Ny kategori',

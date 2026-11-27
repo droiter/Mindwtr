@@ -9,6 +9,7 @@ import {
   insertOverviewCategoryAfter,
   findOverviewNodeByTaskId,
   moveOverviewNode,
+  moveOverviewNodeSibling,
   normalizeOverviewTree,
   overviewCategoryPath,
   overviewLeafLabels,
@@ -62,6 +63,23 @@ describe('overview tree', () => {
 
     const reordered = moveOverviewNode(nodes, b.node.id, root.node.id, 0);
     expect(childrenOf(reordered, root.node.id).map((node) => node.title)).toEqual(['B', 'A']);
+  });
+
+  it('moves a node one slot among its siblings', () => {
+    let nodes: OverviewTreeNode[] = [];
+    const a = appendOverviewCategory(nodes, 'A');
+    nodes = a.nodes;
+    const b = appendOverviewCategory(nodes, 'B');
+    nodes = b.nodes;
+    const c = appendOverviewCategory(nodes, 'C');
+    nodes = c.nodes;
+
+    nodes = moveOverviewNodeSibling(nodes, b.node.id, 1);
+    expect(childrenOf(nodes, null).map((node) => node.title)).toEqual(['A', 'C', 'B']);
+    nodes = moveOverviewNodeSibling(nodes, a.node.id, 1);
+    expect(childrenOf(nodes, null).map((node) => node.title)).toEqual(['C', 'A', 'B']);
+    expect(moveOverviewNodeSibling(nodes, b.node.id, 1)).toBe(nodes);
+    expect(moveOverviewNodeSibling(nodes, c.node.id, -1)).toBe(nodes);
   });
 
   it('prepends a root category at the top', () => {

@@ -372,6 +372,8 @@ export const zhHant: Record<string, string> = {
         'overview.newNode': '新增節點',
         'overview.addChildNode': '新增子節點',
         'overview.newSiblingNode': '新增兄弟節點',
+        'overview.moveNodeUp': '上移',
+        'overview.moveNodeDown': '下移',
         'overview.inbox': '收集箱',
         'overview.category': '分類',
         'overview.newCategory': '新增分類',

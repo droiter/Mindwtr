@@ -97,6 +97,8 @@ vi.mock('react-native-safe-area-context', () => ({
 vi.mock('lucide-react-native', () => {
   const Icon = (props: Record<string, unknown>) => React.createElement('Icon', props);
   return {
+    ArrowDown: Icon,
+    ArrowUp: Icon,
     Check: Icon,
     ChevronDown: Icon,
     ChevronRight: Icon,
@@ -227,6 +229,7 @@ describe('OverviewScreen task tree', () => {
     expect(modal[0].props.visible).toBe(true);
     expect(modal[0].props.task?.id).toBe('t1');
     expect(modal[0].props.forcePriority).toBe(true);
+    expect(modal[0].props.defaultTab).toBe('task');
   });
 
   it('keeps a typed node name when opening the editor without submitting', async () => {
@@ -649,6 +652,50 @@ describe('OverviewScreen task tree', () => {
     });
     expect(findByText(tree, 'Website').length).toBeGreaterThan(0);
     expect(findByText(tree, 'Task p').length).toBe(1);
+  });
+
+  it('moves the selected node up and down among its siblings', async () => {
+    seed([]);
+    const tree = await renderScreen();
+    const addTopLevelNode = async (title: string) => {
+      await act(async () => {
+        findByLabel(tree, 'Add child node')[0].props.onPress();
+        await Promise.resolve();
+      });
+      const input = tree.root.findByType(TextInput);
+      act(() => {
+        input.props.onChangeText(title);
+      });
+      await act(async () => {
+        input.props.onSubmitEditing();
+        await Promise.resolve();
+      });
+      act(() => {
+        findByLabel(tree, 'Clear')[0].props.onPress();
+      });
+    };
+
+    await addTopLevelNode('A');
+    await addTopLevelNode('B');
+    // New top-level nodes are prepended, so the order is B, A.
+    await act(async () => {
+      findByLabel(tree, 'A')[0].props.onPress();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      tree.root.findByProps({ testID: 'overview-move-up' }).props.onPress();
+      await Promise.resolve();
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 350));
+    });
+    const treeWrites = storageMock.setItem.mock.calls.filter(([key]) => key === 'mindwtr:overview:tree:v2');
+    const saved = JSON.parse(String(treeWrites.at(-1)?.[1]));
+    const roots = saved.nodes
+      .filter((node: { kind: string; parentId: string | null }) => node.kind === 'category' && node.parentId === null)
+      .sort((a: { order: number }, b: { order: number }) => a.order - b.order)
+      .map((node: { title: string }) => node.title);
+    expect(roots).toEqual(['A', 'B']);
   });
 
   it('creates a sibling node directly after the selected node', async () => {

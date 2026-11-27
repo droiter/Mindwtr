@@ -296,6 +296,8 @@ export const faOverrides: Record<string, string> = {
         'overview.newNode': 'گره جدید',
         'overview.addChildNode': 'افزودن گره فرزند',
         'overview.newSiblingNode': 'گره خواهر/برادر جدید',
+        'overview.moveNodeUp': 'انتقال به بالا',
+        'overview.moveNodeDown': 'انتقال به پایین',
         'overview.inbox': 'صندوق ورودی',
         'overview.category': 'دسته',
         'overview.newCategory': 'دسته جدید',
