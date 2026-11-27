@@ -262,6 +262,9 @@ export default function OverviewScreen() {
   const pendingTree = useRef<OverviewTreeNode[] | null>(null);
   const titleDraftRef = useRef<TitleDraft | null>(null);
   titleDraftRef.current = titleDraft;
+  const listScrollRef = useRef<ScrollView | null>(null);
+  const rowLayouts = useRef<Map<string, number>>(new Map());
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const treeRef = useRef<OverviewTreeNode[]>(tree);
   treeRef.current = tree;
 
@@ -332,6 +335,33 @@ export default function OverviewScreen() {
   }, [flushSave]);
 
   useEffect(() => () => flushSave(), [flushSave]);
+
+  const scrollDraftIntoView = useCallback(() => {
+    const nodeId = titleDraftRef.current?.nodeId;
+    if (!nodeId) return;
+    const y = rowLayouts.current.get(nodeId);
+    if (y === undefined) return;
+    listScrollRef.current?.scrollTo({ y: Math.max(0, y - 140), animated: true });
+  }, []);
+
+  const draftNodeId = titleDraft?.nodeId ?? null;
+  useEffect(() => {
+    if (!draftNodeId) return;
+    const timer = setTimeout(scrollDraftIntoView, 120);
+    return () => clearTimeout(timer);
+  }, [draftNodeId, scrollDraftIntoView]);
+
+  useEffect(() => {
+    const show = Keyboard.addListener('keyboardDidShow', (event) => {
+      setKeyboardHeight(event.endCoordinates?.height ?? 0);
+      setTimeout(scrollDraftIntoView, 60);
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboardHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, [scrollDraftIntoView]);
 
   const reconcileWithTasks = useCallback((nodes: OverviewTreeNode[]): OverviewTreeNode[] => (
     reconcileOverviewTree(nodes, reconcileTasks, { inboxTitle }).nodes
@@ -1061,8 +1091,9 @@ export default function OverviewScreen() {
       </View>
 
       <ScrollView
+        ref={listScrollRef}
         style={styles.list}
-        contentContainerStyle={[styles.listContent, { paddingBottom: 160 + insets.bottom }]}
+        contentContainerStyle={[styles.listContent, { paddingBottom: 160 + insets.bottom + keyboardHeight }]}
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="interactive"
         onScrollBeginDrag={commitPendingTitleEdit}
@@ -1074,6 +1105,10 @@ export default function OverviewScreen() {
             return (
               <Pressable
                 key={row.node.id}
+                onLayout={(event) => {
+                  rowLayouts.current.set(row.node.id, event.nativeEvent.layout.y);
+                  if (titleDraftRef.current?.nodeId === row.node.id) scrollDraftIntoView();
+                }}
                 onPress={() => handleNodePress(row.node)}
                 style={[
                   styles.categoryRow,
@@ -1133,6 +1168,10 @@ export default function OverviewScreen() {
           return (
             <Pressable
               key={row.node.id}
+              onLayout={(event) => {
+                rowLayouts.current.set(row.node.id, event.nativeEvent.layout.y);
+                if (titleDraftRef.current?.nodeId === row.node.id) scrollDraftIntoView();
+              }}
               onPress={() => handleNodePress(row.node, task)}
               style={[
                 styles.taskRow,
