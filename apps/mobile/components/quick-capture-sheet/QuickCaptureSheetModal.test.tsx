@@ -1414,7 +1414,7 @@ describe('Quick capture modal composition', () => {
     const flagColor = (priority: string) =>
       pickerTree.root.findByProps({ testID: `priority-flag-${priority}` }).props.color;
     expect(flagColor('low')).toBe('#3b82f6');
-    expect(flagColor('medium')).toBe('#ca8a04');
+    expect(flagColor('medium')).toBe('#16a34a');
     expect(flagColor('high')).toBe('#f97316');
     expect(flagColor('urgent')).toBe('#dc2626');
     const clearFlag = pickerTree.root.findByProps({ testID: 'priority-flag-clear' });
@@ -1483,8 +1483,8 @@ describe('Quick capture modal composition', () => {
         .findByProps({ accessibilityLabel: 'taskEdit.priorityLabel: Medium' });
       return chip.findAll((node) => typeof node.props?.size === 'number');
     };
-    expect(triggerFlag('medium').map((node) => node.props.color)).toContain('#ca8a04');
+    expect(triggerFlag('medium').map((node) => node.props.color)).toContain('#16a34a');
     expect(triggerFlag(null).map((node) => node.props.color)).toContain(tc.text);
-    expect(triggerFlag(null).map((node) => node.props.color)).not.toContain('#ca8a04');
+    expect(triggerFlag(null).map((node) => node.props.color)).not.toContain('#16a34a');
   });
 });

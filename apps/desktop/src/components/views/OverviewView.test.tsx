@@ -56,8 +56,8 @@ describe('OverviewView', () => {
     seed([makeTask('a'), makeTask('b', { status: 'next' })]);
     renderOverview();
     expect((await screen.findAllByText(/Inbox|收件箱|收集箱/)).length).toBeGreaterThan(0);
-    expect(await screen.findByTestId('task-item-a')).toBeTruthy();
-    expect(await screen.findByTestId('task-item-b')).toBeTruthy();
+    expect(await screen.findByTestId('task-row-a')).toBeTruthy();
+    expect(await screen.findByTestId('task-row-b')).toBeTruthy();
   });
 
   it('toggles a task done through the checkbox', async () => {
@@ -72,10 +72,10 @@ describe('OverviewView', () => {
   it('hides done tasks when the Done filter is turned off', async () => {
     seed([makeTask('done', { status: 'done' }), makeTask('next', { status: 'next' })]);
     renderOverview();
-    expect(await screen.findByTestId('task-item-done')).toBeTruthy();
+    expect(await screen.findByTestId('task-row-done')).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: 'Done', pressed: true }));
-    expect(screen.queryByTestId('task-item-done')).toBeNull();
-    expect(screen.getByTestId('task-item-next')).toBeTruthy();
+    expect(screen.queryByTestId('task-row-done')).toBeNull();
+    expect(screen.getByTestId('task-row-next')).toBeTruthy();
   });
 
   it('creates a category from the toolbar', async () => {
@@ -169,6 +169,19 @@ describe('OverviewView', () => {
     expect((await screen.findAllByText('Work 2')).length).toBeGreaterThan(0);
   });
 
+  it('does not render a duplicate area-named node under the area', async () => {
+    seed([makeTask('t1', { projectId: 'proj-1' })]);
+    useTaskStore.setState({
+      projects: [{ id: 'proj-1', title: 'Work', areaId: 'area-1', status: 'active', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+      _allProjects: [{ id: 'proj-1', title: 'Work', areaId: 'area-1', status: 'active', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+      areas: [{ id: 'area-1', name: 'Work', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+      _allAreas: [{ id: 'area-1', name: 'Work', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+    } as never);
+    renderOverview();
+    expect(await screen.findByTestId('task-row-t1')).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'Work' })).toHaveLength(1);
+  });
+
   it('collapses and expands the whole subtree when clicking a middle node', async () => {
     seed([makeTask('p', { projectId: 'proj-1' })]);
     useTaskStore.setState({
@@ -178,14 +191,14 @@ describe('OverviewView', () => {
       _allAreas: [{ id: 'area-1', name: 'Work', color: '#000', order: 0, createdAt: now, updatedAt: now }],
     } as never);
     renderOverview();
-    expect(await screen.findByTestId('task-item-p')).toBeTruthy();
+    expect(await screen.findByTestId('task-row-p')).toBeTruthy();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Work' }));
-    expect(screen.queryByTestId('task-item-p')).toBeNull();
+    expect(screen.queryByTestId('task-row-p')).toBeNull();
     expect(screen.queryByRole('button', { name: 'Website' })).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: 'Work' }));
-    expect(await screen.findByTestId('task-item-p')).toBeTruthy();
+    expect(await screen.findByTestId('task-row-p')).toBeTruthy();
   });
 
   it('creates a sibling node directly after the selected node', async () => {

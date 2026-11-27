@@ -3030,15 +3030,16 @@ it('can keep the focus star without adding a redundant focus outline', () => {
       return rows[0]?.props.accessibilityLabel as string;
     };
 
-    it('paints one strip per priority', () => {
+    it('paints one strip per priority with a due-date shade', () => {
       expect(renderRow({ priority: 'urgent' })).toEqual(expect.objectContaining({
-        backgroundColor: '#dc2626',
+        backgroundColor: '#dc26268C',
         position: 'absolute',
         width: 3,
       }));
-      expect(renderRow({ priority: 'high' })?.backgroundColor).toBe('#f97316');
-      expect(renderRow({ priority: 'medium' })?.backgroundColor).toBe('#ca8a04');
-      expect(renderRow({ priority: 'low' })?.backgroundColor).toBe('#3b82f6');
+      expect(renderRow({ priority: 'high' })?.backgroundColor).toBe('#f973168C');
+      expect(renderRow({ priority: 'medium' })?.backgroundColor).toBe('#16a34a8C');
+      expect(renderRow({ priority: 'low' })?.backgroundColor).toBe('#3b82f68C');
+      expect(renderRow({ priority: 'high', dueDate: '2000-01-01' })?.backgroundColor).toBe('#f97316FF');
     });
 
     it('sits on the leading edge so it follows RTL', () => {
@@ -3053,7 +3054,7 @@ it('can keep the focus star without adding a redundant focus outline', () => {
 
 
     it('keeps the priority color on a completed task', () => {
-      expect(renderRow({ status: 'done', priority: 'low' })?.backgroundColor).toBe('#3b82f6');
+      expect(renderRow({ status: 'done', priority: 'low' })?.backgroundColor).toBe('#3b82f659');
     });
 
 

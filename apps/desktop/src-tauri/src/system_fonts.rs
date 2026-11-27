@@ -1,85 +1,80 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
-const BOLD_WEIGHT: u16 = 600;
+/// Names that indicate a CJK-capable font even when the family is spelled in
+/// Latin letters, so they can be grouped with the localized names.
+const CJK_FONT_NAME_HINTS: &[&str] = &[
+    "fangsong",
+    "kaiti",
+    "simsun",
+    "nsimsun",
+    "simhei",
+    "microsoft yahei",
+    "microsoft jhenghei",
+    "dengxian",
+    "mingliu",
+    "pmingliu",
+    "dfkai",
+    "noto sans cjk",
+    "noto serif cjk",
+    "source han",
+    "pingfang",
+    "hiragino",
+    "malgun gothic",
+    "yu gothic",
+    "ms gothic",
+    "meiryo",
+];
 
-pub(crate) fn bold_capable_families<I>(faces: I) -> Vec<String>
+fn is_cjk_font_family(name: &str) -> bool {
+    if name.chars().any(|ch| {
+        matches!(ch as u32,
+            0x3400..=0x4DBF
+            | 0x4E00..=0x9FFF
+            | 0xF900..=0xFAFF
+            | 0x20000..=0x2FA1F)
+    }) {
+        return true;
+    }
+    let lower = name.to_lowercase();
+    CJK_FONT_NAME_HINTS.iter().any(|hint| lower.contains(hint))
+}
+
+/// Deduplicate family names case-insensitively while preserving the first
+/// spelling seen. CJK-capable families are listed first so Chinese fonts are
+/// easy to find, then the remaining families are sorted alphabetically.
+///
+/// Every installed family is kept, including regular-only CJK fonts such as
+/// FangSong/KaiTi/SimSun that ship no semibold face.
+pub(crate) fn sorted_font_families<I>(families: I) -> Vec<String>
 where
-    I: IntoIterator<Item = (String, u16)>,
+    I: IntoIterator<Item = String>,
 {
-    let mut names: BTreeSet<String> = BTreeSet::new();
-    let mut heaviest: BTreeMap<String, u16> = BTreeMap::new();
-    for (name, weight) in faces {
-        let name = name.trim().to_string();
-        if name.is_empty() {
+    let mut by_key: BTreeMap<String, String> = BTreeMap::new();
+    for family in families {
+        let family = family.trim().to_string();
+        if family.is_empty() {
             continue;
         }
-        let slot = heaviest.entry(name.to_lowercase()).or_insert(0);
-        *slot = (*slot).max(weight);
-        names.insert(name);
+        by_key.entry(family.to_lowercase()).or_insert(family);
     }
-    let mut families: Vec<String> = names
-        .into_iter()
-        .filter(|name| heaviest.get(&name.to_lowercase()).copied().unwrap_or(0) >= BOLD_WEIGHT)
-        .collect();
-    families.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()).then_with(|| a.cmp(b)));
+    let mut families: Vec<String> = by_key.into_values().collect();
+    families.sort_by(|a, b| {
+        is_cjk_font_family(b)
+            .cmp(&is_cjk_font_family(a))
+            .then_with(|| a.to_lowercase().cmp(&b.to_lowercase()))
+            .then_with(|| a.cmp(b))
+    });
     families
-}
-
-fn be_u16(data: &[u8], at: usize) -> Option<u16> {
-    Some(u16::from_be_bytes(data.get(at..at + 2)?.try_into().ok()?))
-}
-
-fn be_u32(data: &[u8], at: usize) -> Option<u32> {
-    Some(u32::from_be_bytes(data.get(at..at + 4)?.try_into().ok()?))
-}
-
-fn variable_weight_max(data: &[u8], face_index: u32) -> Option<u16> {
-    let directory = if data.get(..4)? == b"ttcf" {
-        be_u32(data, 12 + 4 * face_index as usize)? as usize
-    } else {
-        0
-    };
-    let table_count = be_u16(data, directory + 4)? as usize;
-    let mut fvar = None;
-    for index in 0..table_count {
-        let record = directory + 12 + 16 * index;
-        if data.get(record..record + 4)? == b"fvar" {
-            fvar = Some(be_u32(data, record + 8)? as usize);
-            break;
-        }
-    }
-    let fvar = fvar?;
-    let axes = fvar + be_u16(data, fvar + 4)? as usize;
-    let axis_count = be_u16(data, fvar + 8)? as usize;
-    let axis_size = be_u16(data, fvar + 10)? as usize;
-    for index in 0..axis_count {
-        let axis = axes + index * axis_size;
-        if data.get(axis..axis + 4)? == b"wght" {
-            return Some((be_u32(data, axis + 12)? >> 16) as u16);
-        }
-    }
-    None
 }
 
 fn load_system_font_families() -> Vec<String> {
     let mut database = fontdb::Database::new();
     database.load_system_fonts();
-    let mut faces: Vec<(String, u16)> = Vec::new();
-    for face in database.faces() {
-        let mut weight = face.weight.0;
-        if weight < BOLD_WEIGHT {
-            if let Some(axis_max) = database
-                .with_face_data(face.id, |data, index| variable_weight_max(data, index))
-                .flatten()
-            {
-                weight = weight.max(axis_max);
-            }
-        }
-        for (name, _) in &face.families {
-            faces.push((name.clone(), weight));
-        }
-    }
-    bold_capable_families(faces)
+    sorted_font_families(
+        database
+            .faces()
+            .flat_map(|face| face.families.iter().map(|(name, _)| name.clone())),
+    )
 }
 
 #[tauri::command]
@@ -91,103 +86,49 @@ pub(crate) async fn list_system_fonts() -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{bold_capable_families, variable_weight_max};
+    use super::sorted_font_families;
 
-    fn faces(entries: &[(&str, u16)]) -> Vec<(String, u16)> {
-        entries.iter().map(|(name, weight)| ((*name).to_string(), *weight)).collect()
+    fn families(entries: &[&str]) -> Vec<String> {
+        entries.iter().map(|name| (*name).to_string()).collect()
     }
 
     #[test]
     fn dedupes_trims_and_sorts_case_insensitively() {
-        let families = bold_capable_families(faces(&[
-            ("Zilla Slab", 700),
-            (" inter ", 400),
-            (" inter ", 700),
-            ("Inter", 400),
-            ("", 700),
-            ("arial", 700),
-            ("Inter", 700),
+        let result = sorted_font_families(families(&[
+            "Zilla Slab",
+            " inter ",
+            "Inter",
+            "",
+            "arial",
         ]));
-        assert_eq!(families, vec!["arial", "Inter", "inter", "Zilla Slab"]);
+        assert_eq!(result, vec!["arial", "inter", "Zilla Slab"]);
     }
 
     #[test]
-    fn drops_families_whose_faces_all_stop_below_semibold() {
-        let families = bold_capable_families(faces(&[
-            ("Ink Free", 400),
-            ("Noto Sans Lisu", 500),
-            ("Segoe UI", 400),
-            ("Segoe UI", 600),
+    fn keeps_families_without_a_bold_face() {
+        let result = sorted_font_families(families(&[
+            "仿宋",
+            "FangSong",
+            "宋体",
+            "SimSun",
+            "楷体",
         ]));
-        assert_eq!(families, vec!["Segoe UI"]);
+        assert_eq!(result, vec!["FangSong", "SimSun", "仿宋", "宋体", "楷体"]);
     }
 
     #[test]
-    fn a_bold_face_spelled_differently_still_counts() {
-        let families = bold_capable_families(faces(&[("Inter", 400), ("INTER", 700)]));
-        assert_eq!(families, vec!["INTER", "Inter"]);
-    }
-
-    fn font_with_axis(tag: &[u8; 4], max_weight: u16, start: u32) -> Vec<u8> {
-        let mut fvar: Vec<u8> = Vec::new();
-        fvar.extend_from_slice(&1u16.to_be_bytes());
-        fvar.extend_from_slice(&0u16.to_be_bytes());
-        fvar.extend_from_slice(&16u16.to_be_bytes());
-        fvar.extend_from_slice(&2u16.to_be_bytes());
-        fvar.extend_from_slice(&1u16.to_be_bytes());
-        fvar.extend_from_slice(&20u16.to_be_bytes());
-        fvar.extend_from_slice(&0u16.to_be_bytes());
-        fvar.extend_from_slice(&0u16.to_be_bytes());
-        fvar.extend_from_slice(tag);
-        fvar.extend_from_slice(&(100u32 << 16).to_be_bytes());
-        fvar.extend_from_slice(&(400u32 << 16).to_be_bytes());
-        fvar.extend_from_slice(&((max_weight as u32) << 16).to_be_bytes());
-        fvar.extend_from_slice(&0u16.to_be_bytes());
-        fvar.extend_from_slice(&0u16.to_be_bytes());
-
-        let mut font: Vec<u8> = Vec::new();
-        font.extend_from_slice(&0x0001_0000u32.to_be_bytes());
-        font.extend_from_slice(&1u16.to_be_bytes());
-        font.extend_from_slice(&[0; 6]);
-        font.extend_from_slice(b"fvar");
-        font.extend_from_slice(&0u32.to_be_bytes());
-        font.extend_from_slice(&(start + 28).to_be_bytes());
-        font.extend_from_slice(&(fvar.len() as u32).to_be_bytes());
-        font.extend_from_slice(&fvar);
-        font
-    }
-
-    #[test]
-    fn reads_the_top_of_the_weight_axis() {
-        assert_eq!(variable_weight_max(&font_with_axis(b"wght", 900, 0), 0), Some(900));
-    }
-
-    #[test]
-    fn ignores_a_font_with_no_weight_axis() {
-        assert_eq!(variable_weight_max(&font_with_axis(b"wdth", 900, 0), 0), None);
-        assert_eq!(variable_weight_max(&[0x00, 0x01, 0x00, 0x00, 0, 0, 0, 0, 0, 0, 0, 0], 0), None);
-    }
-
-    #[test]
-    fn a_collection_reads_the_requested_font() {
-        let inner = font_with_axis(b"wght", 800, 16);
-        let mut collection: Vec<u8> = Vec::new();
-        collection.extend_from_slice(b"ttcf");
-        collection.extend_from_slice(&0x0001_0000u32.to_be_bytes());
-        collection.extend_from_slice(&1u32.to_be_bytes());
-        collection.extend_from_slice(&16u32.to_be_bytes());
-        collection.extend_from_slice(&inner);
-        assert_eq!(variable_weight_max(&collection, 0), Some(800));
-        assert_eq!(variable_weight_max(&collection, 1000), None);
-    }
-
-    #[test]
-    fn a_truncated_font_never_panics() {
-        let font = font_with_axis(b"wght", 900, 0);
-        for end in 0..font.len() {
-            let read = variable_weight_max(&font[..end], 0);
-            assert!(matches!(read, None | Some(900)), "truncated at {end} read {read:?}");
-        }
+    fn lists_cjk_fonts_before_latin_ones() {
+        let result = sorted_font_families(families(&[
+            "Zilla Slab",
+            "仿宋",
+            "Arial",
+            "Microsoft YaHei",
+            "SimSun",
+        ]));
+        assert_eq!(
+            result,
+            vec!["Microsoft YaHei", "SimSun", "仿宋", "Arial", "Zilla Slab"],
+        );
     }
 
     #[test]

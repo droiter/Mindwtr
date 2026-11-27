@@ -1,5 +1,5 @@
 import { getProjectAccentColor } from './task-accent-color';
-import { DEFAULT_AREA_COLOR, einkSafeColor } from './color-constants';
+import { DEFAULT_AREA_COLOR, TASK_PRIORITY_COLORS, einkSafeColor } from './color-constants';
 import { formatTimeEstimateLabel } from './calendar-scheduling';
 import { createDateFormatter, hasTimeComponent, safeParseDate, safeParseDueDate, type DateFormatter, type DateFormattingConfig } from './date';
 import { tFallback, type TranslateFn } from './i18n';
@@ -42,6 +42,35 @@ export function resolveTaskRowFeatures(
 
 
 export type TaskRowDueTone = 'overdue' | 'dueSoon' | 'normal';
+
+const PRIORITY_TONE_CLOSE_ALPHA = 'FF';
+const PRIORITY_TONE_SOON_ALPHA = 'C4';
+const PRIORITY_TONE_FAR_ALPHA = '8C';
+const PRIORITY_TONE_DONE_ALPHA = '59';
+
+/**
+ * Priority color with three opacity steps based on due-date urgency, so every
+ * view can show both what matters most and how soon it is due.
+ */
+export function getTaskPriorityToneColor(
+    task: Pick<Task, 'priority' | 'status' | 'dueDate'>,
+    colors: Readonly<Record<TaskPriority, string>> = TASK_PRIORITY_COLORS,
+    now: Date = new Date(),
+): string | null {
+    if (!task.priority) return null;
+    const base = colors[task.priority];
+    if (!base) return null;
+    if (!/^#[0-9a-f]{6}$/i.test(base)) return base;
+    const urgency = getTaskUrgency(task, now);
+    const alpha = task.status === 'done'
+        ? PRIORITY_TONE_DONE_ALPHA
+        : urgency === 'overdue' || urgency === 'urgent'
+            ? PRIORITY_TONE_CLOSE_ALPHA
+            : urgency === 'upcoming'
+                ? PRIORITY_TONE_SOON_ALPHA
+                : PRIORITY_TONE_FAR_ALPHA;
+    return `${base}${alpha}`;
+}
 
 type TaskRowMetaPartBody =
     | { kind: 'project'; projectId: string; dotColor: string | null }

@@ -117,6 +117,15 @@ describe('overview tree', () => {
     expect(third.nodes).toHaveLength(3);
   });
 
+  it('does not add a project level that repeats the area name', () => {
+    const result = reconcileOverviewTree([], [
+      { id: 't1', areaTitle: '工作', projectTitle: '工作' },
+    ], { inboxTitle: '收集箱' });
+    const categories = result.nodes.filter((node) => node.kind === 'category');
+    expect(categories.map((node) => node.title)).toEqual(['工作']);
+    expect(findOverviewNodeByTaskId(result.nodes, 't1')).toBeTruthy();
+  });
+
   it('reconciles stored leaves with the live task list', () => {
     let nodes: OverviewTreeNode[] = [];
     const work = cat(nodes, '工作');

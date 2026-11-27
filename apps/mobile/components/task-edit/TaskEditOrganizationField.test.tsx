@@ -364,7 +364,7 @@ describe('TaskEditOrganizationField', () => {
 
         const flag = (priority: string) => tree.root.findByProps({ testID: `priority-flag-${priority}` });
         expect(flag('low').props.color).toBe('#3b82f6');
-        expect(flag('medium').props.color).toBe('#ca8a04');
+        expect(flag('medium').props.color).toBe('#16a34a');
         expect(flag('high').props.color).toBe('#f97316');
         expect(flag('urgent').props.color).toBe('#dc2626');
 

@@ -20,6 +20,7 @@ import {
     type RecurrenceWeekday,
     type Section,
     type Task,
+    type TaskEditorFieldId,
     type TimeEstimate,
 } from '@mindwtr/core';
 import type { TaskDraft } from '@mindwtr/core/task-draft';
@@ -40,6 +41,7 @@ type UseTaskEditDerivedStateArgs = {
     sections: Section[];
     prioritiesEnabled: boolean;
     timeEstimatesEnabled: boolean;
+    forcePriority?: boolean;
     contextInputDraft: string;
     descriptionDraft: string;
     tagInputDraft: string;
@@ -57,6 +59,7 @@ export function useTaskEditDerivedState({
     sections,
     prioritiesEnabled,
     timeEstimatesEnabled,
+    forcePriority = false,
     contextInputDraft,
     descriptionDraft,
     tagInputDraft,
@@ -104,7 +107,11 @@ export function useTaskEditDerivedState({
     );
 
     const taskEditor = settings.gtd?.taskEditor;
-    const sectionOpenDefaults = useMemo(() => getTaskEditorSectionOpenDefaults(taskEditor), [taskEditor]);
+    const baseSectionOpenDefaults = useMemo(() => getTaskEditorSectionOpenDefaults(taskEditor), [taskEditor]);
+    const sectionOpenDefaults = useMemo(
+        () => (forcePriority ? { ...baseSectionOpenDefaults, organization: true } : baseSectionOpenDefaults),
+        [baseSectionOpenDefaults, forcePriority],
+    );
     const projectSections = useMemo(
         () => getTaskEditorProjectSections(sections, activeProjectId),
         [activeProjectId, sections]
@@ -136,6 +143,12 @@ export function useTaskEditDerivedState({
         visibleAttachmentsLength,
     ]);
 
+    const organizationFields = useMemo<TaskEditorFieldId[]>(() => {
+        const fields = layout.sections.organization;
+        if (!forcePriority || !prioritiesEnabled || fields.includes('priority')) return fields;
+        return [...fields, 'priority'];
+    }, [layout.sections.organization, forcePriority, prioritiesEnabled]);
+
     return {
         activeProjectId,
         availableStatusOptions: TASK_EDITOR_STATUS_OPTIONS,
@@ -148,7 +161,7 @@ export function useTaskEditDerivedState({
         monthlyAnchorDate,
         monthlyPattern,
         monthlyWeekdayCode,
-        organizationFields: layout.sections.organization,
+        organizationFields,
         priorityOptions: TASK_EDITOR_PRIORITY_OPTIONS,
         projectFilterAreaId,
         projectSections,

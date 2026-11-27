@@ -7,6 +7,7 @@ import { usePriorityColors } from '../../hooks/use-priority-colors';
 import { useEinkSafeColor } from '../../hooks/use-eink-safe-color';
 import {
     formatI18nTemplate,
+    getTaskPriorityToneColor,
     tFallback,
 } from '@mindwtr/core';
 import type { ProjectSequenceTaskCue, Task, TaskRowMeta, TaskRowMetaPart } from '@mindwtr/core';
@@ -376,6 +377,7 @@ export function SwipeableTaskItemContent({
 
     const { isMaterial, shape } = useThemeTokens();
     const priorityColors = usePriorityColors();
+    const priorityAccent = meta.priority ? getTaskPriorityToneColor(task, priorityColors) : null;
     const visibleMetaParts = (hideDetails ? meta.parts.filter((part) => !part.detail) : meta.parts).map(renderMetaPart);
 
     return (
@@ -409,9 +411,9 @@ export function SwipeableTaskItemContent({
             accessibilityActions={accessibilityActions}
             onAccessibilityAction={onAccessibilityAction}
         >
-            {meta.priority && (
+            {priorityAccent && (
                 <View
-                    style={[styles.priorityStrip, { backgroundColor: priorityColors[meta.priority] }]}
+                    style={[styles.priorityStrip, { backgroundColor: priorityAccent }]}
                     testID="task-priority-strip"
                     pointerEvents="none"
                 />

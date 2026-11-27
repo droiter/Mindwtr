@@ -4,6 +4,10 @@ import {
   appendOverviewCategory,
   childrenOf,
   DEFAULT_PROJECT_COLOR,
+  formatTaskScheduleDisplay,
+  getDateFormattingConfig,
+  getTaskPriorityToneColor,
+  getTaskUrgency,
   insertOverviewCategoryAfter,
   overviewLeafLabels,
   parseOverviewTree,
@@ -79,6 +83,8 @@ export function OverviewView() {
   const [titleDraft, setTitleDraft] = useState<TitleDraft | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [collapsedNodeIds, setCollapsedNodeIds] = useState<Set<string>>(() => new Set());
+  const editingTaskId = useUiStore((state) => state.editingTaskId);
+  const [overviewEditingTaskId, setOverviewEditingTaskId] = useState<string | null>(null);
   const [lockedTaskIds, setLockedTaskIds] = useState<Set<string>>(() => new Set());
   const [lockedDestinations, setLockedDestinations] = useState<Map<string, { areaId?: string; projectId?: string }>>(() => new Map());
   const pendingConversionUnsubscribeRef = useRef<null | (() => void)>(null);
@@ -100,6 +106,10 @@ export function OverviewView() {
     return { id: task.id, areaTitle: area?.name ?? null, projectTitle: project?.title ?? null };
   }), [areaById, projectById, tasks]);
   const taskSignature = useMemo(() => tasks.map((task) => task.id).sort().join(','), [tasks]);
+
+  useEffect(() => {
+    if (!editingTaskId) setOverviewEditingTaskId(null);
+  }, [editingTaskId]);
 
   const flushSave = useCallback(() => {
     if (saveTimer.current) {
@@ -173,6 +183,18 @@ export function OverviewView() {
       const result: Array<{ node: OverviewTreeNode; depth: number; task?: Task; hasChildren?: boolean; collapsed?: boolean; guides?: boolean[] }> = [];
       for (const node of childrenOf(tree, parentId)) {
         if (node.kind === 'category') {
+          const parent = parentId ? tree.find((candidate) => candidate.id === parentId) : undefined;
+          if (
+            parent
+            && parent.kind === 'category'
+            && parent.parentId === null
+            && parent.title.trim().toLowerCase() === node.title.trim().toLowerCase()
+          ) {
+            // Legacy area nodes can contain a duplicate project node with the
+            // same name; show its children directly under the area instead.
+            result.push(...build(node.id, depth));
+            continue;
+          }
           const hasChildren = tree.some((candidate) => candidate.parentId === node.id);
           if (collapsedNodeIds.has(node.id)) {
             result.push({ node, depth, hasChildren, collapsed: true });
@@ -266,6 +288,7 @@ export function OverviewView() {
       }
       const nextTree = renameOverviewCategory(treeRef.current, draft.nodeId, nextTitle);
       setTree(nextTree);
+      treeRef.current = nextTree;
       return nextTree;
     }
     return treeRef.current;
@@ -397,7 +420,10 @@ export function OverviewView() {
     }
 
     let projectId: string | undefined;
-    const projectTitle = titles.join(' / ');
+    const pathTitles = titles.filter((title, index) => (
+      index === 0 || title.toLowerCase() !== titles[index - 1].toLowerCase()
+    ));
+    const projectTitle = pathTitles.length >= 2 ? pathTitles.join(' / ') : '';
     if (projectTitle) {
       const existingProject = projects.find((project) => (
         project.title.trim().toLowerCase() === projectTitle.toLowerCase()
@@ -436,7 +462,10 @@ export function OverviewView() {
       areaId = ancestors.find((ancestor) => ancestor.areaId)?.areaId
         ?? areas.find((area) => area.name.trim().toLowerCase() === titles[0].toLowerCase())?.id;
     }
-    const projectTitle = titles.join(' / ');
+    const pathTitles = titles.filter((title, index) => (
+      index === 0 || title.toLowerCase() !== titles[index - 1].toLowerCase()
+    ));
+    const projectTitle = pathTitles.length >= 2 ? pathTitles.join(' / ') : '';
     const projectId = projectTitle
       ? projects.find((project) => (
         project.title.trim().toLowerCase() === projectTitle.toLowerCase()
@@ -478,6 +507,7 @@ export function OverviewView() {
     const destination = resolveNodeDestinationSync(current);
 
     if (current.kind === 'task' && current.taskId) {
+      setOverviewEditingTaskId(current.taskId);
       setLockedDestinations((map) => new Map(map).set(current.taskId as string, destination));
       if (destination.areaId || destination.projectId) {
         setLockedTaskIds((ids) => new Set(ids).add(current.taskId as string));
@@ -744,84 +774,128 @@ export function OverviewView() {
           }
 
           const task = row.task as Task;
-          const project = task.projectId ? projectById.get(task.projectId) : undefined;
           const labels = overviewLeafLabels(tree, row.node);
+          const isEditingTask = overviewEditingTaskId === task.id;
+          if (isEditingTask) {
+            return (
+              <div key={row.node.id} className="relative" style={{ paddingLeft: row.depth * 18 }}>
+                <TreeGuides guides={row.guides ?? []} stops={row.guideStops ?? []} />
+                <TaskItem
+                  task={(() => {
+                    const destination = lockedDestinations.get(task.id);
+                    return destination
+                      ? {
+                        ...task,
+                        ...(destination.areaId ? { areaId: destination.areaId } : {}),
+                        ...(destination.projectId ? { projectId: destination.projectId } : {}),
+                      }
+                      : task;
+                  })()}
+                  compactMetaEnabled
+                  showProjectBadgeInMetadata={false}
+                  showProjectBadgeInActions={false}
+                  lockedDestination={lockedTaskIds.has(task.id)}
+                />
+              </div>
+            );
+          }
+          const priorityAccent = getTaskPriorityToneColor(task);
+          const urgency = getTaskUrgency(task);
+          const dueDisplay = task.dueDate
+            ? formatTaskScheduleDisplay({
+              value: task.dueDate,
+              kind: 'due',
+              relative: true,
+              now: new Date(),
+              dateFormatting: getDateFormattingConfig(),
+              t,
+            })
+            : null;
+          const dueTone = urgency === 'overdue'
+            ? 'text-destructive'
+            : urgency === 'urgent' || urgency === 'upcoming'
+              ? 'text-warning'
+              : 'text-muted-foreground';
           return (
             <div
               key={row.node.id}
+              data-testid={`task-row-${task.id}`}
               onClick={() => {
                 commitPendingTitleEdit();
                 setSelectedNodeId(row.node.id);
               }}
-              className={cn('group relative rounded-md', selectedNodeId === row.node.id ? 'bg-primary/10' : null)}
-              style={{ paddingLeft: row.depth * 18 }}
+              className={cn(
+                'group relative flex items-center gap-2 rounded-md py-1',
+                selectedNodeId === row.node.id ? 'bg-primary/10' : null,
+              )}
+              style={{ paddingLeft: row.depth * 18 + 4 }}
             >
               <TreeGuides guides={row.guides ?? []} stops={row.guideStops ?? []} />
-              {labels.projectLabel ? (
-                <div className="pl-1 text-[11px] font-semibold text-muted-foreground">{labels.projectLabel} ·</div>
-              ) : null}
-              <div className="flex items-start gap-2">
-                <button
-                  type="button"
-                  aria-label={`${t('status.done')}: ${task.title}`}
-                  aria-pressed={task.status === 'done'}
-                  onClick={() => {
-                    commitPendingTitleEdit();
-                    toggleTaskDone(task);
-                  }}
-                  className={cn(
-                    'mt-2 flex h-4 w-4 shrink-0 items-center justify-center rounded border',
-                    task.status === 'done' ? 'border-success bg-success text-white' : 'border-muted-foreground',
-                  )}
-                >
-                  {task.status === 'done' ? <Check className="h-3 w-3" /> : null}
-                </button>
-                <div className="min-w-0 flex-1">
-                  <TaskItem
-                    task={(() => {
-                      const destination = lockedDestinations.get(task.id);
-                      return destination
-                        ? {
-                          ...task,
-                          ...(destination.areaId ? { areaId: destination.areaId } : {}),
-                          ...(destination.projectId ? { projectId: destination.projectId } : {}),
-                        }
-                        : task;
-                    })()}
-                    project={project}
-                    compactMetaEnabled
-                    showProjectBadgeInMetadata={false}
-                    showProjectBadgeInActions={false}
-                    lockedDestination={lockedTaskIds.has(task.id)}
-                  />
-                </div>
-                <button
-                  type="button"
-                  aria-label={`${t('common.edit')}: ${task.title}`}
-                  title={t('common.edit')}
-                  onClick={() => {
-                    commitPendingTitleEdit();
+              <button
+                type="button"
+                aria-label={`${t('status.done')}: ${task.title}`}
+                aria-pressed={task.status === 'done'}
+                onClick={() => {
+                  commitPendingTitleEdit();
+                  toggleTaskDone(task);
+                }}
+                className={cn(
+                  'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
+                  task.status === 'done' ? 'border-success bg-success text-white' : 'border-muted-foreground',
+                )}
+              >
+                {task.status === 'done' ? <Check className="h-3 w-3" /> : null}
+              </button>
+              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                {labels.projectLabel ? (
+                  <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
+                    {labels.projectLabel} ·
+                  </span>
+                ) : null}
+                <span
+                  className={cn('min-w-0 truncate text-sm font-semibold', task.status === 'done' ? 'line-through opacity-60' : null)}
+                  style={priorityAccent ? { color: priorityAccent } : undefined}
+                  title={task.title}
+                  onDoubleClick={(event) => {
+                    event.stopPropagation();
                     setSelectedNodeId(row.node.id);
                     void openNodeEditor(row.node);
                   }}
-                  className="mt-1 rounded p-1 text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground group-hover:opacity-100"
                 >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  aria-label={`${t('common.delete')}: ${task.title}`}
-                  title={t('common.delete')}
-                  onClick={() => {
-                    setSelectedNodeId((current) => (current === row.node.id ? null : current));
-                    setTree((current) => removeOverviewNode(current, row.node.id));
-                    void deleteTask(task.id);
-                  }}
-                  className="mt-1 rounded p-1 text-muted-foreground opacity-0 hover:bg-muted hover:text-danger group-hover:opacity-100"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                  {task.title}
+                </span>
+                {dueDisplay ? (
+                  <span className={cn('shrink-0 text-[11px] font-medium', dueTone)} title={dueDisplay.exactLabel}>
+                    {dueDisplay.label}
+                  </span>
+                ) : null}
               </div>
+              <button
+                type="button"
+                aria-label={`${t('common.edit')}: ${task.title}`}
+                title={t('common.edit')}
+                onClick={() => {
+                  commitPendingTitleEdit();
+                  setSelectedNodeId(row.node.id);
+                  void openNodeEditor(row.node);
+                }}
+                className="rounded p-1 text-muted-foreground opacity-0 hover:bg-muted hover:text-foreground group-hover:opacity-100"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label={`${t('common.delete')}: ${task.title}`}
+                title={t('common.delete')}
+                onClick={() => {
+                  setSelectedNodeId((current) => (current === row.node.id ? null : current));
+                  setTree((current) => removeOverviewNode(current, row.node.id));
+                  void deleteTask(task.id);
+                }}
+                className="rounded p-1 text-muted-foreground opacity-0 hover:bg-muted hover:text-danger group-hover:opacity-100"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
             </div>
           );
         })}

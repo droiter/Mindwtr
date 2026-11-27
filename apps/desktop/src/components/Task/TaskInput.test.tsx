@@ -362,7 +362,7 @@ describe('TaskInput autocomplete', () => {
 
         const priorityFlagColors = {
             low: '#3b82f6',
-            medium: '#ca8a04',
+            medium: '#16a34a',
             high: '#f97316',
             urgent: '#dc2626',
         } as const;

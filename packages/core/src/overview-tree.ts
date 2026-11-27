@@ -306,8 +306,12 @@ export function reconcileOverviewTree(
   for (const task of tasks) {
     if (seenTaskIds.has(task.id)) continue;
     const titles: string[] = [];
-    if (task.areaTitle?.trim()) titles.push(task.areaTitle.trim());
-    if (task.projectTitle?.trim()) titles.push(task.projectTitle.trim());
+    const areaTitle = task.areaTitle?.trim() ?? '';
+    const projectTitle = task.projectTitle?.trim() ?? '';
+    if (areaTitle) titles.push(areaTitle);
+    if (projectTitle && projectTitle.toLowerCase() !== areaTitle.toLowerCase()) {
+      titles.push(projectTitle);
+    }
     if (titles.length === 0) titles.push(options.inboxTitle);
     const ensured = ensureOverviewCategoryPath(nextNodes, titles);
     nextNodes = ensured.nodes;

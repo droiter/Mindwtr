@@ -3,7 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { configureDateFormatting } from './date';
 import { loadTranslations } from './i18n/i18n-loader';
 import type { Language } from './i18n/i18n-types';
-import { buildTaskRowMeta, getTaskRowMetaValidUntil, resolveTaskRowFeatures, resolveTaskRowLookup, type TaskRowMeta, type TaskRowMetaPart } from './task-row-meta';
+import { buildTaskRowMeta, getTaskPriorityToneColor, getTaskRowMetaValidUntil, resolveTaskRowFeatures, resolveTaskRowLookup, type TaskRowMeta, type TaskRowMetaPart } from './task-row-meta';
 import { getProjectRowStatus } from './project-row-meta';
 import { DEFAULT_AREA_COLOR, TASK_PRIORITY_COLORS } from './color-constants';
 import type { Area, Project, Section, Task } from './types';
@@ -372,5 +372,24 @@ describe('eink row meta dots', () => {
         const chromatic = buildTaskRowMeta({ ...base, task: task({ projectId: 'p' }),
             lookup: { project, projectArea: { id: 'a', name: 'Area', color: '#ef4444', order: 0, createdAt: '', updatedAt: '' } }, themePreset: 'light' });
         expect(chromatic.parts.find((part) => part.kind === 'project')?.dotColor).toBe('#10b981');
+    });
+});
+
+
+describe('getTaskPriorityToneColor', () => {
+    const now = new Date('2026-09-28T12:00:00.000Z');
+    const base = { priority: 'high' as const, status: 'next' as const };
+
+    it('returns the priority hue in three due-date shades', () => {
+        expect(getTaskPriorityToneColor({ ...base, dueDate: '2026-09-27' }, TASK_PRIORITY_COLORS, now)).toBe('#f97316FF');
+        expect(getTaskPriorityToneColor({ ...base, dueDate: '2026-09-30' }, TASK_PRIORITY_COLORS, now)).toBe('#f97316C4');
+        expect(getTaskPriorityToneColor({ ...base, dueDate: '2026-10-20' }, TASK_PRIORITY_COLORS, now)).toBe('#f973168C');
+        expect(getTaskPriorityToneColor(base, TASK_PRIORITY_COLORS, now)).toBe('#f973168C');
+    });
+
+    it('mutes completed tasks and uses the medium green', () => {
+        expect(getTaskPriorityToneColor({ ...base, status: 'done', dueDate: '2026-09-27' }, TASK_PRIORITY_COLORS, now)).toBe('#f9731659');
+        expect(getTaskPriorityToneColor({ priority: 'medium', status: 'next' }, TASK_PRIORITY_COLORS, now)).toBe('#16a34a8C');
+        expect(getTaskPriorityToneColor({ priority: undefined, status: 'next' }, TASK_PRIORITY_COLORS, now)).toBeNull();
     });
 });

@@ -34,6 +34,7 @@ import {
   appendOverviewCategory,
   childrenOf,
   DEFAULT_PROJECT_COLOR,
+  getTaskPriorityToneColor,
   insertOverviewCategoryAfter,
   moveOverviewNode,
   overviewLeafLabels,
@@ -55,6 +56,7 @@ import {
 import { TaskEditModal } from '@/components/task-edit-modal';
 import { useLanguage } from '@/contexts/language-context';
 import { useThemeColors, type ThemeColors } from '@/hooks/use-theme-colors';
+import { usePriorityColors } from '@/hooks/use-priority-colors';
 import { workspaceSessionStorage as AsyncStorage } from '@/lib/workspace-session-storage';
 
 const TREE_STORAGE_KEY = 'mindwtr:overview:tree:v2';
@@ -223,6 +225,7 @@ function SheetOption({
 
 export default function OverviewScreen() {
   const tc = useThemeColors();
+  const priorityColors = usePriorityColors();
   const { t } = useLanguage();
   const insets = useSafeAreaInsets();
 
@@ -372,6 +375,18 @@ export default function OverviewScreen() {
       const result: FlatRow[] = [];
       for (const node of childrenOf(tree, parentId)) {
         if (node.kind === 'category') {
+          const parent = parentId ? tree.find((candidate) => candidate.id === parentId) : undefined;
+          if (
+            parent
+            && parent.kind === 'category'
+            && parent.parentId === null
+            && parent.title.trim().toLowerCase() === node.title.trim().toLowerCase()
+          ) {
+            // Legacy area nodes can contain a duplicate project node with the
+            // same name; show its children directly under the area instead.
+            result.push(...build(node.id, depth));
+            continue;
+          }
           const hasChildren = tree.some((candidate) => candidate.parentId === node.id);
           if (collapsedNodeIds.has(node.id)) {
             result.push({ node, depth, hasChildren, collapsed: true });
@@ -483,6 +498,7 @@ export default function OverviewScreen() {
       void updateArea(node.areaId, { name: nextTitle });
     }
     setTree(nextTree);
+    treeRef.current = nextTree;
     return nextTree;
   }, [areas, siblingCategoryTitles, t, updateArea, updateTask]);
 
@@ -664,7 +680,10 @@ export default function OverviewScreen() {
     }
 
     let projectId: string | undefined;
-    const projectTitle = titles.join(' / ');
+    const pathTitles = titles.filter((title, index) => (
+      index === 0 || title.toLowerCase() !== titles[index - 1].toLowerCase()
+    ));
+    const projectTitle = pathTitles.length >= 2 ? pathTitles.join(' / ') : '';
     if (projectTitle) {
       const existingProject = projects.find((project) => (
         project.title.trim().toLowerCase() === projectTitle.toLowerCase()
@@ -703,7 +722,10 @@ export default function OverviewScreen() {
       areaId = ancestors.find((ancestor) => ancestor.areaId)?.areaId
         ?? areas.find((area) => area.name.trim().toLowerCase() === titles[0].toLowerCase())?.id;
     }
-    const projectTitle = titles.join(' / ');
+    const pathTitles = titles.filter((title, index) => (
+      index === 0 || title.toLowerCase() !== titles[index - 1].toLowerCase()
+    ));
+    const projectTitle = pathTitles.length >= 2 ? pathTitles.join(' / ') : '';
     const projectId = projectTitle
       ? projects.find((project) => (
         project.title.trim().toLowerCase() === projectTitle.toLowerCase()
@@ -847,6 +869,11 @@ export default function OverviewScreen() {
     setMoveSheetNodeId(null);
   }, []);
 
+  const priorityTextColor = useCallback(
+    (task: Task): string | null => getTaskPriorityToneColor(task, priorityColors),
+    [priorityColors],
+  );
+
   const renderTaskTitle = (row: FlatRow) => {
     const task = row.task as Task;
     const labels = overviewLeafLabels(tree, row.node);
@@ -884,7 +911,7 @@ export default function OverviewScreen() {
           style={[
             styles.taskTitle,
             {
-              color: tc.text,
+              color: priorityTextColor(task) ?? tc.text,
               textDecorationLine: task.status === 'done' ? 'line-through' : 'none',
               opacity: task.status === 'done' ? 0.6 : 1,
             },
@@ -1361,6 +1388,7 @@ export default function OverviewScreen() {
         visible={Boolean(editingTask)}
         task={editingTask}
         lockedDestinationFields={lockedDestinationFields}
+        forcePriority
         onClose={() => { pendingEditRef.current = null; setEditingTask(null); setLockedDestinationFields([]); }}
         onSave={handleEditorSave}
       />

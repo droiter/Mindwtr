@@ -27,6 +27,7 @@ import {
     flushPendingSave,
     buildQuickAddParseOptions,
     getPersonOptionNames,
+    getTaskPriorityToneColor,
     normalizeTimeSpentMinutes,
     parseTimeEstimateInput,
     minutesToTimeEstimate,
@@ -1767,7 +1768,7 @@ export const TaskItem = memo(function TaskItem({
                 }}
                 onContextMenu={interactionDisabled ? undefined : handleOpenQuickActionMenu}
                 className={cn(
-                    "group rounded-lg hover:bg-muted/50 dark:hover:bg-muted/20 transition-colors animate-in fade-in slide-in-from-bottom-2",
+                    "group relative rounded-lg hover:bg-muted/50 dark:hover:bg-muted/20 transition-colors animate-in fade-in slide-in-from-bottom-2",
                     isCondensed ? "px-2.5 py-1.5" : isCompact ? "p-2.5" : "px-3 py-3",
                     "focus-within:ring-2 focus-within:ring-inset focus-within:ring-primary/40 focus-within:bg-primary/5",
                     canCalendarDrag && "cursor-grab active:cursor-grabbing",
@@ -1778,6 +1779,17 @@ export const TaskItem = memo(function TaskItem({
                     quickActionMenu !== null && "ring-2 ring-inset ring-primary/40 bg-primary/5"
                 )}
             >
+                {(() => {
+                    const priorityAccent = getTaskPriorityToneColor(task);
+                    return priorityAccent ? (
+                        <span
+                            aria-hidden
+                            data-task-priority-accent={task.priority}
+                            className="pointer-events-none absolute left-0.5 inset-y-2 w-[3px] rounded-full"
+                            style={{ backgroundColor: priorityAccent }}
+                        />
+                    ) : null;
+                })()}
                 <div className={cn("flex items-start", isCondensed ? "gap-1.5" : isCompact ? "gap-2" : "gap-3")}>
                     {selectionMode && !interactionDisabled && (
                         <input

@@ -170,6 +170,7 @@ interface TaskEditModalProps {
     onContextNavigate?: (context: string) => void;
     onTagNavigate?: (tag: string) => void;
     lockedDestinationFields?: ('area' | 'project')[];
+    forcePriority?: boolean;
 
     readOnly?: boolean;
 }
@@ -185,6 +186,7 @@ function TaskEditModalInner({
     onContextNavigate,
     onTagNavigate,
     lockedDestinationFields,
+    forcePriority = false,
     readOnly = false,
 }: TaskEditModalProps) {
     const { showToast } = useToast();
@@ -561,6 +563,7 @@ function TaskEditModalInner({
         sections,
         prioritiesEnabled,
         timeEstimatesEnabled,
+        forcePriority,
         contextInputDraft,
         descriptionDraft,
         tagInputDraft,

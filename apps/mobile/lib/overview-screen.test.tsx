@@ -226,6 +226,46 @@ describe('OverviewScreen task tree', () => {
     expect(modal.length).toBe(1);
     expect(modal[0].props.visible).toBe(true);
     expect(modal[0].props.task?.id).toBe('t1');
+    expect(modal[0].props.forcePriority).toBe(true);
+  });
+
+  it('keeps a typed node name when opening the editor without submitting', async () => {
+    seed([]);
+    const tree = await renderScreen();
+    await act(async () => {
+      findByLabel(tree, 'Add child node')[0].props.onPress();
+      await Promise.resolve();
+    });
+    const input = tree.root.findByType(TextInput);
+    act(() => {
+      input.props.onChangeText('Work');
+    });
+    await act(async () => {
+      findByLabel(tree, 'Edit: New node')[0].props.onPress();
+      await Promise.resolve();
+    });
+    let modal = tree.root.findAll((node) => String(node.type) === 'TaskEditModal');
+    expect(modal[0].props.task.title).toBe('Work');
+
+    await act(async () => {
+      await modal[0].props.onSave('draft', { title: modal[0].props.task.title });
+      await Promise.resolve();
+    });
+    const created = core.useTaskStore.getState()._allTasks.find((task) => task.title === 'Work');
+    expect(created).toBeTruthy();
+    expect(findByText(tree, 'Work').length).toBeGreaterThan(0);
+  });
+
+  it('colors task titles by priority and due-date proximity', async () => {
+    seed([
+      makeTask('soon', { title: 'Due soon', priority: 'high', dueDate: '2000-01-01' }),
+      makeTask('later', { title: 'Due later', priority: 'high', dueDate: '2099-01-01' }),
+    ]);
+    const tree = await renderScreen();
+    const soon = findByText(tree, 'Due soon')[0];
+    const later = findByText(tree, 'Due later')[0];
+    expect(JSON.stringify(soon.props.style)).toContain('#f97316FF');
+    expect(JSON.stringify(later.props.style)).toContain('#f973168C');
   });
 
   it('filters done tasks out when their status is deselected', async () => {
@@ -572,6 +612,18 @@ describe('OverviewScreen task tree', () => {
       await Promise.resolve();
     });
     expect(findByText(tree, 'New node 2').length).toBeGreaterThan(0);
+  });
+
+  it('does not render a duplicate area-named node under the area', async () => {
+    seed([makeTask('t1', { projectId: 'proj-1' })], {
+      projects: [{ id: 'proj-1', title: 'Work', areaId: 'area-1', status: 'active', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+      _allProjects: [{ id: 'proj-1', title: 'Work', areaId: 'area-1', status: 'active', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+      areas: [{ id: 'area-1', name: 'Work', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+      _allAreas: [{ id: 'area-1', name: 'Work', color: '#000', order: 0, createdAt: now, updatedAt: now }],
+    });
+    const tree = await renderScreen();
+    expect(findByLabel(tree, 'Work').filter((node) => String(node.type) === 'Pressable')).toHaveLength(1);
+    expect(findByText(tree, 'Task t1')).toHaveLength(1);
   });
 
   it('collapses and expands the whole subtree when tapping a middle node', async () => {
